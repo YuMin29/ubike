@@ -2,6 +2,7 @@ package com.yumin.ubike
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -10,6 +11,13 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.yumin.ubike.databinding.ActivityMapsBinding
+import com.yumin.ubike.repository.ApiService
+import com.yumin.ubike.repository.ApiServiceManager
+import com.yumin.ubike.repository.RemoteRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -26,6 +34,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        // test ApiServiceManager
+        MainScope().launch(Dispatchers.IO) {
+            var list = RemoteRepository().getStationInfoByCity("Taichung")
+            Log.d("MainScope", "list = $list")
+        }
     }
 
     /**

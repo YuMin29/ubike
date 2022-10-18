@@ -7,13 +7,13 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiServiceManager {
-    private const val BASE_URL = "https://tdx.transportdata.tw/api/basic/v2/Bike/"
+    private const val BASE_URL = "https://tdx.transportdata.tw/"
     val apiService: ApiService
 
     init {
         val okHttpClient: OkHttpClient =
             OkHttpClient.Builder()
-                .connectTimeout(5000, TimeUnit.MILLISECONDS)
+                .connectTimeout(10000, TimeUnit.MILLISECONDS)
                 .build()
 
         val retrofit: Retrofit =

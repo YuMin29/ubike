@@ -49,6 +49,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
         layout = binding.root
         setContentView(layout)
 
+        // hide action bar
+        supportActionBar?.hide()
+
         mapViewModel = MapViewModel(remoteRepository,baseContext)
 
         initViewModelData()

@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">ubike</string>
     <string name="title_activity_maps">MapsActivity</string>
+    <string name="dialog_message">Some permission are required to do the task.</string>
+    <string name="dialog_title">Need permissions</string>
+    <string name="dialog_ok">Ok</string>
+    <string name="dialog_cancel">Cancel</string>
 </resources>

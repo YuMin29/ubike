@@ -1,12 +1,22 @@
 package com.yumin.ubike.repository
 
 import com.yumin.ubike.data.StationInfo
+import okhttp3.ResponseBody
 import retrofit2.Call
-import retrofit2.http.GET
-import retrofit2.http.Path
-import retrofit2.http.Query
+import retrofit2.http.*
 
 interface ApiService {
-    @GET("api/basic/v2/Bike/Station/{City}?%24top=30&%24format=JSON")
-    fun getStationInfoByCity(@Path("City")city:String): Call<StationInfo>
+    @GET("api/basic/v2/Bike/Station/City/{City}")
+    fun getStationInfoByCity(
+        @Header("authorization") token: String,
+        @Path("City") city: String
+    ): Call<StationInfo>
+
+    @FormUrlEncoded
+    @POST("auth/realms/TDXConnect/protocol/openid-connect/token")
+    fun getToken(
+        @Field("grant_type") type: String,
+        @Field("client_id") id: String,
+        @Field("client_secret") secret: String
+    ): Call<ResponseBody>
 }

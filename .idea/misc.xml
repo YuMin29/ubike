@@ -3,7 +3,9 @@
   <component name="DesignSurface">
     <option name="filePathToZoomLevelMap">
       <map>
+        <entry key="..\:/Users/stell/AndroidStudioProjects/ubike/app/src/main/res/drawable/bg_round.xml" value="0.2515" />
         <entry key="..\:/Users/stell/AndroidStudioProjects/ubike/app/src/main/res/layout/activity_maps.xml" value="0.25364583333333335" />
+        <entry key="..\:/Users/stell/AndroidStudioProjects/ubike/app/src/main/res/layout/home.xml" value="0.2526041666666667" />
       </map>
     </option>
   </component>

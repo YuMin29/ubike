@@ -4,30 +4,31 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.RelativeLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.Observer
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.*
+import com.google.android.gms.maps.model.*
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.databinding.ActivityMapsBinding
 import com.yumin.ubike.repository.RemoteRepository
 
+
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
     private val TAG: String = "[MapsActivity]"
-    private lateinit var mMap: GoogleMap
+    private var mMap: GoogleMap? = null
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
     private lateinit var locationManager: LocationManager
@@ -35,6 +36,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
     private var stationMarkerList: ArrayList<Marker> = ArrayList()
     private lateinit var mapViewModel: MapViewModel
     private val remoteRepository = RemoteRepository()
+    private var isDrawCurrentPosition:Boolean = false
+    private lateinit var mapView: View
 
     override fun onStart() {
         super.onStart()
@@ -49,9 +52,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
         layout = binding.root
         setContentView(layout)
 
-        // hide action bar
-        supportActionBar?.hide()
-
         mapViewModel = MapViewModel(remoteRepository,baseContext)
 
         initViewModelData()
@@ -65,11 +65,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
 
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+        mapView = mapFragment.requireView()
     }
 
     private fun initViewModelData(){
         mapViewModel.stationInfoList.observe(this, Observer {
             if (it.size > 0) {
+                stationMarkerList.clear()
+                mMap?.clear()
+
                 Log.d(TAG,"[getViewModelData] SIZE = "+it.size)
                 createStationMarkerList(it)
             }
@@ -78,13 +82,32 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
 
     private fun createStationMarkerList(stationInfo: StationInfo){
         for (infoItem in stationInfo) {
-            val marker = mMap.addMarker(MarkerOptions()
+            val markerOptions = MarkerOptions()
                 .position(LatLng(infoItem.stationPosition.positionLat,infoItem.stationPosition.positionLon))
-                .title(infoItem.stationName.zhTw))
+                .title(infoItem.stationName.zhTw)
+                .icon(getBitmapFromVectorDrawable(this,R.drawable.ubike_location_24))
+
+            val marker = mMap?.addMarker(markerOptions)
+
             if (marker != null) {
                 stationMarkerList.add(marker)
             }
         }
+    }
+
+    fun getBitmapFromVectorDrawable(context: Context?, drawableId: Int): BitmapDescriptor {
+        var drawable = ContextCompat.getDrawable(context!!, drawableId)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            drawable = DrawableCompat.wrap(drawable!!).mutate()
+        }
+        val bitmap = Bitmap.createBitmap(
+            drawable!!.intrinsicWidth,
+            drawable.intrinsicHeight, Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight())
+        drawable.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     private fun checkPermissions() {
@@ -156,13 +179,29 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
     override fun onMapReady(googleMap: GoogleMap) {
         Log.d(TAG,"[onMapReady]")
         mMap = googleMap
+        mMap?.isMyLocationEnabled = true
+
+        val myLocationButton = (mapView.findViewById<View>(Integer.parseInt("1")).parent as View)
+            .findViewById<View>(Integer.parseInt("2"))
+        val rlp = myLocationButton.layoutParams as (RelativeLayout.LayoutParams)
+        // position on right bottom
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP,0)
+        rlp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM,RelativeLayout.TRUE)
+        rlp.setMargins(0,0,30,30)
+
+        mMap.setCame
     }
 
     override fun onLocationChanged(location: Location) {
         Log.d(TAG,"LOCATION = "+location.latitude+","+location.longitude)
-        currentLocationWhenStart = LatLng(location.latitude, location.longitude)
-        mMap.addMarker(MarkerOptions().position(currentLocationWhenStart).title("Current location"))
-        // move to current position
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocationWhenStart))
+
+        if (!isDrawCurrentPosition) {
+            isDrawCurrentPosition = true
+            currentLocationWhenStart = LatLng(location.latitude, location.longitude)
+            // move to current position
+            mMap?.moveCamera(CameraUpdateFactory.newLatLng(currentLocationWhenStart))
+        }
     }
+
+
 }

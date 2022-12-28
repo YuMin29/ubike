@@ -2,42 +2,23 @@ package com.yumin.ubike
 
 import android.Manifest
 import android.app.AlertDialog
-import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.RelativeLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.DrawableCompat
-import androidx.lifecycle.Observer
-import com.google.android.gms.maps.*
-import com.google.android.gms.maps.model.*
-import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.databinding.ActivityMapsBinding
-import com.yumin.ubike.repository.RemoteRepository
 
 
-class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
+/**
+ * MapsActivity responsible to check runtime permission
+ */
+class MapsActivity : AppCompatActivity() {
     private val TAG: String = "[MapsActivity]"
-    private var mMap: GoogleMap? = null
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
-    private lateinit var locationManager: LocationManager
-    private lateinit var currentLocationWhenStart: LatLng
-    private var stationMarkerList: ArrayList<Marker> = ArrayList()
-    private lateinit var mapViewModel: MapViewModel
-    private val remoteRepository = RemoteRepository()
-    private var isDrawCurrentPosition:Boolean = false
-    private lateinit var mapView: View
 
     override fun onStart() {
         super.onStart()
@@ -47,93 +28,51 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        // Initialize view
         binding = ActivityMapsBinding.inflate(layoutInflater)
         layout = binding.root
         setContentView(layout)
 
-        mapViewModel = MapViewModel(remoteRepository,baseContext)
+        // Initialize fragment
+        val mapFragment = MapFragment()
+        // Open fragment
+        supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
 
-        initViewModelData()
-
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        //Get current location by GPS
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,0.0f,this)
-        //Get current location by network
-
-        //If both GPS and network not work, show can't get location warning
-
-        val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
-        mapView = mapFragment.requireView()
-    }
-
-    private fun initViewModelData(){
-        mapViewModel.stationInfoList.observe(this, Observer {
-            if (it.size > 0) {
-                stationMarkerList.clear()
-                mMap?.clear()
-
-                Log.d(TAG,"[getViewModelData] SIZE = "+it.size)
-                createStationMarkerList(it)
-            }
-        })
-    }
-
-    private fun createStationMarkerList(stationInfo: StationInfo){
-        for (infoItem in stationInfo) {
-            val markerOptions = MarkerOptions()
-                .position(LatLng(infoItem.stationPosition.positionLat,infoItem.stationPosition.positionLon))
-                .title(infoItem.stationName.zhTw)
-                .icon(getBitmapFromVectorDrawable(this,R.drawable.ubike_location_24))
-
-            val marker = mMap?.addMarker(markerOptions)
-
-            if (marker != null) {
-                stationMarkerList.add(marker)
-            }
-        }
-    }
-
-    fun getBitmapFromVectorDrawable(context: Context?, drawableId: Int): BitmapDescriptor {
-        var drawable = ContextCompat.getDrawable(context!!, drawableId)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            drawable = DrawableCompat.wrap(drawable!!).mutate()
-        }
-        val bitmap = Bitmap.createBitmap(
-            drawable!!.intrinsicWidth,
-            drawable.intrinsicHeight, Bitmap.Config.ARGB_8888
-        )
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight())
-        drawable.draw(canvas)
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     private fun checkPermissions() {
-        if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED) ||
-            (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_DENIED)) {
+        if ((ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_DENIED) ||
+            (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_DENIED)
+        ) {
             // one of the permission is denied
 
             if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                Log.d(TAG, "未取得權限@")
+                Log.d(TAG, "Permission not granted")
                 // show dialog to explain why this app need these permissions?
                 showAlertDialog()
             } else {
                 // ask user to require permission
                 requestPermissionLauncher.launch(
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION)
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
                 )
             }
         } else {
             // get all permission granted
-            Log.d(TAG, "已取得權限@")
+            Log.d(TAG, "Permission granted")
         }
     }
 
-    private fun showAlertDialog(){
-       val builder: AlertDialog.Builder? = this?.let {
+    private fun showAlertDialog() {
+        val builder: AlertDialog.Builder? = this?.let {
             AlertDialog.Builder(it)
         }
         builder?.setMessage(R.string.dialog_message)
@@ -148,7 +87,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
             )
         }
 
-        builder?.setNeutralButton(R.string.dialog_cancel,null)
+        builder?.setNeutralButton(R.string.dialog_cancel, null)
 
         val dialog: AlertDialog? = builder?.create()
         dialog?.show()
@@ -159,49 +98,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback , LocationListener{
             permissions.entries.forEach {
                 Log.d(TAG, "[requestPermissionLauncher] ${it.key} = ${it.value}")
                 if (!it.value) {
-                    // permission denied
-                    // show dialog to request permissions
+                    // permission denied , show dialog to request permissions
                     Log.d(TAG, "[requestPermissionLauncher] ${it.key} permission denied")
                     showAlertDialog()
                 }
             }
         }
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
-    override fun onMapReady(googleMap: GoogleMap) {
-        Log.d(TAG,"[onMapReady]")
-        mMap = googleMap
-        mMap?.isMyLocationEnabled = true
-
-        val myLocationButton = (mapView.findViewById<View>(Integer.parseInt("1")).parent as View)
-            .findViewById<View>(Integer.parseInt("2"))
-        val rlp = myLocationButton.layoutParams as (RelativeLayout.LayoutParams)
-        // position on right bottom
-        rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP,0)
-        rlp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM,RelativeLayout.TRUE)
-        rlp.setMargins(0,0,30,30)
-
-        mMap.setCame
-    }
-
-    override fun onLocationChanged(location: Location) {
-        Log.d(TAG,"LOCATION = "+location.latitude+","+location.longitude)
-
-        if (!isDrawCurrentPosition) {
-            isDrawCurrentPosition = true
-            currentLocationWhenStart = LatLng(location.latitude, location.longitude)
-            // move to current position
-            mMap?.moveCamera(CameraUpdateFactory.newLatLng(currentLocationWhenStart))
-        }
-    }
-
-
 }

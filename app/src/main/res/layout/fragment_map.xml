@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:map="http://schemas.android.com/apk/res-auto"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -10,34 +11,91 @@
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        map:cameraZoom="20" />
+        map:cameraZoom="20"
+        tools:layout_editor_absoluteX="31dp"
+        tools:layout_editor_absoluteY="0dp" />
 
     <SearchView
         android:id="@+id/searchView"
-        app:layout_constraintEnd_toStartOf="@+id/imageButton"
+        app:layout_constraintEnd_toStartOf="@+id/favorite_station_info"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_editor_absoluteX="10dp"
         app:layout_editor_absoluteY="10dp"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
         android:layout_margin="10dp"
         android:background="@drawable/search_view_bg_round"
-        android:elevation="5dp"
         android:iconifiedByDefault="false"
         android:queryBackground="@null"
         android:queryHint="Search" />
 
     <ImageButton
-        android:id="@+id/imageButton"
+        android:id="@+id/favorite_station_info"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/searchView"
         app:layout_constraintTop_toTopOf="parent"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:layout_alignParentRight="true"
         android:layout_margin="10dp"
         android:background="@drawable/favorite_bg_round"
         android:src="@drawable/ic_baseline_favorite_24" />
+
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:id="@+id/ubike_all"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:text="@string/ubike_all"
+        app:backgroundTint="@color/white"
+        app:cornerRadius="25dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/purple_200"
+        map:layout_constraintStart_toStartOf="parent"
+        map:layout_constraintTop_toBottomOf="@+id/searchView" />
+
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:id="@+id/ubike_1_0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:text="@string/ubike_1_0"
+        app:cornerRadius="25dp"
+        app:backgroundTint="@color/white"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/purple_200"
+        map:layout_constraintStart_toEndOf="@+id/ubike_2_0"
+        map:layout_constraintTop_toBottomOf="@+id/searchView" />
+
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:id="@+id/ubike_2_0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:text="@string/ubike_2_0"
+        app:cornerRadius="25dp"
+        app:backgroundTint="@color/white"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/purple_200"
+        map:layout_constraintStart_toEndOf="@+id/ubike_all"
+        map:layout_constraintTop_toBottomOf="@+id/searchView" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/station_info_list_view"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="60dp"
+        android:text="@string/station_infi_list"
+        app:backgroundTint="@color/white"
+        app:cornerRadius="25dp"
+        app:icon="@drawable/ic_baseline_list_24"
+        app:strokeColor="@color/purple_200"
+        app:strokeWidth="1dp"
+        map:layout_constraintBottom_toBottomOf="parent"
+        map:layout_constraintEnd_toEndOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

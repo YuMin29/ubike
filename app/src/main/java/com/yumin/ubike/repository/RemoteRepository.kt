@@ -2,6 +2,7 @@ package com.yumin.ubike.repository
 
 import android.util.Log
 import com.yumin.ubike.BuildConfig
+import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.StationInfo
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.ResponseBody
@@ -12,6 +13,30 @@ import retrofit2.Response
 
 class RemoteRepository {
     private var remoteApiService: ApiService = ApiServiceManager.apiService
+
+    suspend fun getAvailabilityByCity(token: String, city: String): AvailabilityInfo {
+        return suspendCancellableCoroutine {
+            remoteApiService.getAvailabilityByCity(token, city).enqueue(
+                object : Callback<AvailabilityInfo> {
+                    override fun onResponse(
+                        call: Call<AvailabilityInfo>,
+                        response: Response<AvailabilityInfo>
+                    ) {
+                        it.resumeWith(Result.success(response.body()) as Result<AvailabilityInfo>)
+                        Log.d(
+                            "RemoteRepository",
+                            "getAvailabilityByCity isSuccessful : " + response.isSuccessful
+                        )
+                    }
+
+                    override fun onFailure(call: Call<AvailabilityInfo>, t: Throwable) {
+                        it.resumeWith(Result.failure(t))
+                        Log.d("RemoteRepository", "getAvailabilityByCity onFailure")
+                    }
+                }
+            )
+        }
+    }
 
     suspend fun getStationInfoByCity(token: String, city: String): StationInfo {
         return suspendCancellableCoroutine {
@@ -24,7 +49,7 @@ class RemoteRepository {
                         it.resumeWith(Result.success(response.body()) as Result<StationInfo>)
                         Log.d(
                             "RemoteRepository",
-                            "getStationInfoByCity list = " + response.isSuccessful
+                            "getStationInfoByCity isSuccessful = " + response.isSuccessful
                         )
                     }
 

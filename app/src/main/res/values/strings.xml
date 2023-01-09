@@ -1,8 +1,12 @@
 <resources>
     <string name="app_name">ubike</string>
     <string name="title_activity_maps">MapsActivity</string>
-    <string name="dialog_message">Some permission are required to do the task.</string>
-    <string name="dialog_title">Need permissions</string>
-    <string name="dialog_ok">Ok</string>
-    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_message">需要授權權限才能執行功能</string>
+    <string name="dialog_title">請授權權限</string>
+    <string name="dialog_ok">確認</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="ubike_2_0">Ubike 2.0</string>
+    <string name="ubike_1_0">Ubike 1.0</string>
+    <string name="ubike_all">Ubike All</string>
+    <string name="station_infi_list">列表顯示</string>
 </resources>

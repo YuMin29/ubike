@@ -1,5 +1,6 @@
 package com.yumin.ubike.repository
 
+import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.StationInfo
 import okhttp3.ResponseBody
 import retrofit2.Call
@@ -19,4 +20,10 @@ interface ApiService {
         @Field("client_id") id: String,
         @Field("client_secret") secret: String
     ): Call<ResponseBody>
+
+    @GET("api/basic/v2/Bike/Availability/City/{City}")
+    fun getAvailabilityByCity(
+        @Header("authorization") token: String,
+        @Path("City") city: String
+    ): Call<AvailabilityInfo>
 }

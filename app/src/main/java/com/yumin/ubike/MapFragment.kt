@@ -12,6 +12,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -24,11 +26,13 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.maps.android.SphericalUtil
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentMapBinding
 import com.yumin.ubike.repository.RemoteRepository
+
 
 /**
  * MapFragment responsible for show map
@@ -38,14 +42,15 @@ class MapFragment : Fragment(), LocationListener {
     private lateinit var fragmentMapBinding: FragmentMapBinding
     private lateinit var locationManager: LocationManager
     private lateinit var mapView: View
-    private var mMap: GoogleMap? = null
+    private lateinit var mMap: GoogleMap
     private lateinit var mapViewModel: MapViewModel
     private val remoteRepository = RemoteRepository()
     private var stationMarkerList: ArrayList<Marker> = ArrayList()
     private var isDrawCurrentPosition: Boolean = false
     private lateinit var currentLocationWhenStart: LatLng
     private var availableList: ArrayList<AvailabilityInfoItem> = ArrayList()
-    private lateinit var stationInfoList: StationInfo
+    private var ubikeType: Int = 0 // 0 -> all
+    private var stationMarkerMap : HashMap<String,Marker> = HashMap()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,23 +59,22 @@ class MapFragment : Fragment(), LocationListener {
     ): View? {
         fragmentMapBinding = FragmentMapBinding.inflate(inflater)
 
-        //
         locationManager = activity?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        //Get current location by GPS
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
         //Get current location by network
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
+
 
         // Initialize view model
         mapViewModel = MapViewModel(remoteRepository, requireContext())
 
-        // Initialize google map
+        // Initialize map fragment
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(object : OnMapReadyCallback {
             override fun onMapReady(googleMap: GoogleMap) {
                 Log.d(TAG, "[onMapReady]")
                 mMap = googleMap
-                mMap?.isMyLocationEnabled = true
-                mMap?.setOnMarkerClickListener(object : GoogleMap.OnMarkerClickListener {
+                mMap.isMyLocationEnabled = true
+                mMap.setOnMarkerClickListener(object : GoogleMap.OnMarkerClickListener {
                     override fun onMarkerClick(marker: Marker): Boolean {
                         // open bottom sheet dialog
                         showBottomSheetDialog(marker)
@@ -78,93 +82,170 @@ class MapFragment : Fragment(), LocationListener {
                     }
                 })
 
+                mMap.setOnCameraMoveStartedListener {
+                    Log.d(TAG, "[setOnCameraMoveStartedListener]")
+                }
+
+                mMap.setOnCameraMoveCanceledListener {
+                    Log.d(TAG, "[setOnCameraMoveCanceledListener]")
+                }
+
+                mMap.setOnCameraIdleListener {
+                    val animation = AnimationUtils.loadAnimation(context, R.anim.position_animation)
+                    animation.setAnimationListener(object : Animation.AnimationListener {
+                        override fun onAnimationStart(animation: Animation?) {
+                            fragmentMapBinding.tempUse.visibility = View.VISIBLE
+                        }
+
+                        override fun onAnimationEnd(animation: Animation?) {
+                            fragmentMapBinding.tempUse.visibility = View.INVISIBLE
+                        }
+
+                        override fun onAnimationRepeat(animation: Animation?) {
+                        }
+                    })
+                    fragmentMapBinding.tempUse.startAnimation(animation)
+                    // Query station from view model
+                    // TODO: 20230115
+                    // 取得目前的ZOOM LEVEL，算出目前畫面的範圍，再利用near by 去取得範圍內的站點資訊(最大範圍:1km)
+
+                    val distance = calculateDistance()
+                    val currentLatLng = mMap.cameraPosition.target
+
+                    Log.d(
+                        TAG,
+                        "[setOnCameraIdleListener] current position = " + mMap.cameraPosition.toString()
+                    )
+                    Log.d(
+                        TAG,
+                        "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}"
+                    )
+
+                    mapViewModel.getStationInfoNearBy(
+                        currentLatLng.latitude,
+                        currentLatLng.longitude,
+                        distance.toInt(),
+                        ubikeType
+                    )
+                    mapViewModel.getAvailabilityNearBy(
+                        currentLatLng.latitude,
+                        currentLatLng.longitude,
+                        distance.toInt(),
+                        ubikeType
+                    )
+                }
+
+                // show current location button
                 val myLocationButton =
                     (mapView.findViewById<View>(Integer.parseInt("1")).parent as View)
                         .findViewById<View>(Integer.parseInt("2"))
                 val rlp = myLocationButton.layoutParams as (RelativeLayout.LayoutParams)
-                // position on right bottom
+                // set current location button position on right bottom
                 rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0)
                 rlp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE)
                 rlp.setMargins(0, 0, 30, 30)
             }
         })
 
-        // TODO 應該要取得map移動的事件，再即時更新地圖
-        // 取得地圖目前可視範圍內的經緯度距離，從stationInfoList找出站點並refresh fragment
-
-        // 計算地圖zoom level的距離
-        // 1.利用站點經緯度+目前位置的經緯度算出距離
-        // 2.要取得目前map camera scale的距離(可能與zoom level有關?)
-
-        // 了解怎麼呼叫ubike api 取得附近距離的站點即時資訊-> nearby(25.047675, 121.517055, 1000)
-        // 語法:nearby({Lat},{Lon},{DistanceInMeters}) DistanceInMeters最大搜尋半徑為1000公尺
-
         mapView = mapFragment.requireView()
+
+        initButton()
 
         observeViewModelData()
 
-        // Initialize button
+        return fragmentMapBinding.root
+    }
+
+    private fun initButton() {
         fragmentMapBinding.ubikeAll.setOnClickListener {
-            stationMarkerList.clear()
+            ubikeType = 0
+            stationMarkerMap.clear()
             mMap?.clear()
-            createStationMarkerList(stationInfoList,0)
+            mapViewModel.getUbikeAvailabilityByType(ubikeType)
+            mapViewModel.getUbikeInfoByType(ubikeType)
         }
 
         fragmentMapBinding.ubike10.setOnClickListener {
-            stationMarkerList.clear()
+            ubikeType = 1
+            stationMarkerMap.clear()
             mMap?.clear()
-            createStationMarkerList(stationInfoList,1)
+            mapViewModel.getUbikeAvailabilityByType(ubikeType)
+            mapViewModel.getUbikeInfoByType(ubikeType)
         }
 
         fragmentMapBinding.ubike20.setOnClickListener {
-            stationMarkerList.clear()
+            ubikeType = 2
+            stationMarkerMap.clear()
             mMap?.clear()
             // update map marker
-            createStationMarkerList(stationInfoList,2)
+            mapViewModel.getUbikeAvailabilityByType(ubikeType)
+            mapViewModel.getUbikeInfoByType(ubikeType)
         }
 
         fragmentMapBinding.favoriteStationInfo.setOnClickListener { TODO("Switch to favorite fragment") }
 
         fragmentMapBinding.stationInfoListView.setOnClickListener {
             // 切換fragment
-            fragmentManager?.beginTransaction()?.replace(R.id.frame_layout,StationInfoListFragment())?.commit()
+            fragmentManager?.beginTransaction()
+                ?.replace(R.id.frame_layout, StationInfoListFragment())?.commit()
         }
+    }
 
-        return fragmentMapBinding.root
+    private fun calculateDistance(): Double {
+        val visibleRegion = mMap.projection.visibleRegion
+        val distance: Double = SphericalUtil.computeDistanceBetween(
+            visibleRegion.farLeft, mMap.cameraPosition.target
+        )
+        Log.d(TAG, "[calculateDistance] DISTANCE = $distance");
+        return distance
     }
 
     private fun observeViewModelData() {
-        mapViewModel.stationInfoList.observe(viewLifecycleOwner, Observer {
-            if (it.size > 0) {
-                stationInfoList = it
-                stationMarkerList.clear()
-                mMap?.clear()
-
-                Log.d(TAG, "[observeViewModelData] stationInfoList SIZE = " + it.size)
-                createStationMarkerList(it,0)
-            }
+        mapViewModel.stationInfoTypeAll.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] stationInfoNearByAll SIZE = " + it.size)
+            createStationMarkerList(it)
         })
 
-        mapViewModel.availabilityInfoList.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] availabilityInfoList SIZE = " + it.size)
+        mapViewModel.stationInfoType1.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] stationInfoNearBy10 SIZE = " + it.size)
+            createStationMarkerList(it)
+        })
+
+        mapViewModel.stationInfoType2.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] stationInfoNearBy20 SIZE = " + it.size)
+            createStationMarkerList(it)
+        })
+
+        mapViewModel.availabilityInfoTypeAll.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
+            availableList = it
+        })
+
+        mapViewModel.availabilityInfoType1.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
+            availableList = it
+        })
+
+        mapViewModel.availabilityInfoType2.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
             availableList = it
         })
     }
 
-    private fun createStationMarkerList(stationInfo: StationInfo, type:Int) {
-        for (infoItem in stationInfo) {
-            val stationName = infoItem.stationName.zhTw.split("_")[1]
-            Log.d(TAG,"[createStationMarkerList] service type = "+infoItem.serviceType)
+    private fun createStationMarkerList(stationInfo: StationInfo) {
+        stationInfo.iterator().forEach { infoItem ->
 
-            if (type != 0 && type != infoItem.serviceType) {
-                Log.d(TAG,"[createStationMarkerList] RETURN")
-                continue
+            // if stationMarkerMap already have this station info marker, return
+            if (stationMarkerMap.containsKey(infoItem.stationUID)) {
+                Log.d(TAG,"[createStationMarkerList] station name = ${infoItem.stationName}, " +
+                        "station UID = ${infoItem.stationUID}")
+                return@forEach
             }
 
-
+            val stationName = infoItem.stationName.zhTw.split("_")[1]
             val availableRent = findAvailableRent(infoItem.stationID)
             val availableReturn = findAvailableReturn(infoItem.stationID)
-            getRateIcon(availableRent,availableReturn)
+            getRateIcon(availableRent, availableReturn)
             val markerOptions = MarkerOptions()
                 .position(
                     LatLng(
@@ -173,7 +254,12 @@ class MapFragment : Fragment(), LocationListener {
                     )
                 )
                 .title("$stationName\n可借")
-                .icon(getBitmapFromVectorDrawable(requireContext(), getRateIcon(availableRent,availableReturn)))
+                .icon(
+                    getBitmapFromVectorDrawable(
+                        requireContext(),
+                        getRateIcon(availableRent, availableReturn)
+                    )
+                )
 
             val marker = mMap?.addMarker(markerOptions)
             if (marker != null) {
@@ -181,7 +267,7 @@ class MapFragment : Fragment(), LocationListener {
             }
 
             if (marker != null) {
-                stationMarkerList.add(marker)
+                stationMarkerMap[infoItem.stationUID] = marker
             }
         }
     }
@@ -214,15 +300,15 @@ class MapFragment : Fragment(), LocationListener {
             currentLocationWhenStart = LatLng(location.latitude, location.longitude)
             // move to current position
             mMap?.moveCamera(CameraUpdateFactory.newLatLng(currentLocationWhenStart))
-            mapViewModel.loadStationInfo("NewTaipei")
-            mapViewModel.loadAvailabilityByCity("NewTaipei")
+//            mapViewModel.getStationInfo("NewTaipei")
+//            mapViewModel.getAvailabilityByCity("NewTaipei")
             //  1.應該根據目前的經緯度區分是哪個縣市，再呼叫view model的loadStationInfo
 
         }
     }
 
     private fun showBottomSheetDialog(marker: Marker) {
-        val dialog = BottomSheetDialog(requireContext(),R.style.Theme_NoWiredStrapInNavigationBar)
+        val dialog = BottomSheetDialog(requireContext(), R.style.Theme_NoWiredStrapInNavigationBar)
         val view = layoutInflater.inflate(R.layout.bottom_sheet_dialog_layout, null)
         val stationInfoItem = marker.tag as StationInfoItem
         val stationNameByTag = stationInfoItem.stationName.zhTw.split("_")
@@ -238,50 +324,42 @@ class MapFragment : Fragment(), LocationListener {
         type.text = stationNameByTag[0]
 
         val availableRent = view.findViewById<TextView>(R.id.available_rent)
-        availableRent.text = findAvailableRent(stationId).toString()+"可借"
+        availableRent.text = findAvailableRent(stationId).toString() + "可借"
 
         val availableReturn = view.findViewById<TextView>(R.id.available_return)
-        availableReturn.text = findAvailableReturn(stationId).toString()+"可還"
+        availableReturn.text = findAvailableReturn(stationId).toString() + "可還"
 
         dialog.setCancelable(true)
         dialog.setContentView(view)
         dialog.show()
     }
 
-    private fun getRateIcon(availableRent:Int, availableReturn:Int):Int{
+    private fun getRateIcon(availableRent: Int, availableReturn: Int): Int {
         Log.d(TAG, "[getRateIcon] availableRent = $availableRent ,availableReturn = $availableReturn")
 
         if (availableRent == 0 && availableReturn == 0)
             return R.drawable.ic_ubike_icon_0
 
-        val availableRate = ((availableRent.toFloat() / (availableRent.toFloat() + availableReturn.toFloat())) * 100).toInt()
-        Log.d(TAG, "[createStationMarkerList] availableRate = $availableRate")
+        val availableRate =
+            ((availableRent.toFloat() / (availableRent.toFloat() + availableReturn.toFloat())) * 100).toInt()
+//        Log.d(TAG, "[getRateIcon] availableRate = $availableRate")
 
-        if (availableRate == 0)
-            return R.drawable.ic_ubike_icon_0
-        else if (availableRate <= 10)
-            return R.drawable.ic_ubike_icon_10
-        else if (availableRate <= 20)
-            return R.drawable.ic_ubike_icon_20
-        else if (availableRate <= 30)
-            return R.drawable.ic_ubike_icon_30
-        else if (availableRate <= 40)
-            return R.drawable.ic_ubike_icon_40
-        else if (availableRate <= 50)
-            return R.drawable.ic_ubike_icon_50
-        else if (availableRate <= 60)
-            return R.drawable.ic_ubike_icon_60
-        else if (availableRate <= 70)
-            return R.drawable.ic_ubike_icon_70
-        else if (availableRate <= 80)
-            return R.drawable.ic_ubike_icon_80
-        else if (availableRate <= 90)
-            return R.drawable.ic_ubike_icon_90
-        else
-            return R.drawable.ic_ubike_icon_100
+        return when {
+            availableRate == 0 -> R.drawable.ic_ubike_icon_0
+            availableRate <= 10 -> R.drawable.ic_ubike_icon_10
+            availableRate <= 20 -> R.drawable.ic_ubike_icon_20
+            availableRate <= 30 -> R.drawable.ic_ubike_icon_30
+            availableRate <= 40 -> R.drawable.ic_ubike_icon_40
+            availableRate <= 50 -> R.drawable.ic_ubike_icon_50
+            availableRate <= 60 -> R.drawable.ic_ubike_icon_60
+            availableRate <= 70 -> R.drawable.ic_ubike_icon_70
+            availableRate <= 80 -> R.drawable.ic_ubike_icon_80
+            availableRate <= 90 -> R.drawable.ic_ubike_icon_90
+            else -> R.drawable.ic_ubike_icon_100
+        }
     }
 
-    private fun findAvailableRent(stationId:String):Int {
+    private fun findAvailableRent(stationId: String): Int {
         for (item in availableList) {
             if (item.StationID == stationId)
                 return item.AvailableRentBikes
@@ -289,7 +367,7 @@ class MapFragment : Fragment(), LocationListener {
         return 0
     }
 
-    private fun findAvailableReturn(stationId: String):Int {
+    private fun findAvailableReturn(stationId: String): Int {
         for (item in availableList) {
             if (item.StationID == stationId)
                 return item.AvailableReturnBikes

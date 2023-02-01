@@ -68,4 +68,6 @@ dependencies {
     implementation "com.squareup.okhttp3:logging-interceptor:4.10.0"
     // google play services
     implementation 'com.google.android.gms:play-services-location:21.0.1'
+    // use map sdk utility library
+    implementation 'com.google.maps.android:android-maps-utils:2.3.0'
 }

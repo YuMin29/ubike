@@ -12,6 +12,10 @@ import retrofit2.Callback
 import retrofit2.Response
 
 class RemoteRepository {
+    companion object {
+        const val TAG = "[RemoteRepository]"
+    }
+
     private var remoteApiService: ApiService = ApiServiceManager.apiService
 
     suspend fun getAvailabilityByCity(token: String, city: String): AvailabilityInfo {
@@ -23,15 +27,12 @@ class RemoteRepository {
                         response: Response<AvailabilityInfo>
                     ) {
                         it.resumeWith(Result.success(response.body()) as Result<AvailabilityInfo>)
-                        Log.d(
-                            "RemoteRepository",
-                            "getAvailabilityByCity isSuccessful : " + response.isSuccessful
-                        )
+                        Log.d(TAG, "getAvailabilityByCity isSuccessful : " + response.isSuccessful)
                     }
 
                     override fun onFailure(call: Call<AvailabilityInfo>, t: Throwable) {
                         it.resumeWith(Result.failure(t))
-                        Log.d("RemoteRepository", "getAvailabilityByCity onFailure")
+                        Log.d(TAG, "getAvailabilityByCity onFailure")
                     }
                 }
             )
@@ -47,15 +48,55 @@ class RemoteRepository {
                         response: Response<StationInfo>
                     ) {
                         it.resumeWith(Result.success(response.body()) as Result<StationInfo>)
-                        Log.d(
-                            "RemoteRepository",
-                            "getStationInfoByCity isSuccessful = " + response.isSuccessful
-                        )
+                        Log.d(TAG, "getStationInfoByCity isSuccessful = " + response.isSuccessful)
                     }
 
                     override fun onFailure(call: Call<StationInfo>, t: Throwable) {
                         it.resumeWith(Result.failure(t))
-                        Log.d("RemoteRepository", "getStationInfoByCity onFailure")
+                        Log.d(TAG, "getStationInfoByCity onFailure")
+                    }
+                }
+            )
+        }
+    }
+
+    suspend fun getStationInfoNearBy(token: String, nearBy: String): StationInfo {
+        Log.d(TAG, "[getStationInfoNearBy] nearBy = $nearBy")
+        return suspendCancellableCoroutine {
+            remoteApiService.getStationInfoNearBy(token, nearBy, "JSON").enqueue(
+                object : Callback<StationInfo> {
+                    override fun onResponse(
+                        call: Call<StationInfo>,
+                        response: Response<StationInfo>
+                    ) {
+                        it.resumeWith(Result.success(response.body()) as Result<StationInfo>)
+                        Log.d(TAG, "[getStationInfoNearBy] onResponse : ${response.body()}")
+                    }
+
+                    override fun onFailure(call: Call<StationInfo>, t: Throwable) {
+                        it.resumeWith(Result.failure(t))
+                        Log.d(TAG, "[getStationInfoNearBy] onFailure : " + t.message)
+                    }
+                }
+            )
+        }
+    }
+
+    suspend fun getAvailabilityInfoNearBy(token: String, nearBy: String): AvailabilityInfo {
+        return suspendCancellableCoroutine {
+            remoteApiService.getAvailabilityInfoBearBy(token, nearBy, "JSON").enqueue(
+                object : Callback<AvailabilityInfo> {
+                    override fun onResponse(
+                        call: Call<AvailabilityInfo>,
+                        response: Response<AvailabilityInfo>
+                    ) {
+                        it.resumeWith(Result.success(response.body()) as Result<AvailabilityInfo>)
+                        Log.d(TAG, "[getAvailabilityInfoNearBy] onResponse : ${response.body()}")
+                    }
+
+                    override fun onFailure(call: Call<AvailabilityInfo>, t: Throwable) {
+                        it.resumeWith(Result.failure(t))
+                        Log.d(TAG, "[getAvailabilityInfoNearBy] onFailure : " + t.message)
                     }
                 }
             )

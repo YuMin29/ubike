@@ -35,7 +35,7 @@ interface ApiService {
     ): Call<StationInfo>
 
     @GET("api/advanced/v2/Bike/Availability/NearBy")
-    fun getAvailabilityInfoBearBy(
+    fun getAvailabilityInfoNearBy(
         @Header("authorization") token: String,
         @Query("\$spatialFilter") nearBy: String,
         @Query("format") format: String

@@ -45,7 +45,6 @@ class MapFragment : Fragment(), LocationListener {
     private lateinit var mMap: GoogleMap
     private lateinit var mapViewModel: MapViewModel
     private val remoteRepository = RemoteRepository()
-    private var stationMarkerList: ArrayList<Marker> = ArrayList()
     private var isDrawCurrentPosition: Boolean = false
     private lateinit var currentLocationWhenStart: LatLng
     private var availableList: ArrayList<AvailabilityInfoItem> = ArrayList()
@@ -78,7 +77,7 @@ class MapFragment : Fragment(), LocationListener {
                     override fun onMarkerClick(marker: Marker): Boolean {
                         // open bottom sheet dialog
                         showBottomSheetDialog(marker)
-                        return false
+                        return true
                     }
                 })
 
@@ -201,38 +200,18 @@ class MapFragment : Fragment(), LocationListener {
     }
 
     private fun observeViewModelData() {
-        mapViewModel.stationInfoTypeAll.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] stationInfoNearByAll SIZE = " + it.size)
-            createStationMarkerList(it)
-        })
-
-        mapViewModel.stationInfoType1.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] stationInfoNearBy10 SIZE = " + it.size)
-            createStationMarkerList(it)
-        })
-
-        mapViewModel.stationInfoType2.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] stationInfoNearBy20 SIZE = " + it.size)
-            createStationMarkerList(it)
-        })
-
-        mapViewModel.availabilityInfoTypeAll.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
-            availableList = it
-        })
-
-        mapViewModel.availabilityInfoType1.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
-            availableList = it
-        })
-
-        mapViewModel.availabilityInfoType2.observe(viewLifecycleOwner, Observer {
-            Log.d(TAG, "[observeViewModelData] availabilityInfoNearBy SIZE = " + it.size)
-            availableList = it
+        mapViewModel.stationWholeInfo.observe(viewLifecycleOwner, Observer { stationWholeInfo ->
+            Log.d(TAG,"[observeViewModelData] stationWholeInfo first  : "+stationWholeInfo.first?.size)
+            Log.d(TAG,"[observeViewModelData] stationWholeInfo second : "+stationWholeInfo.second?.size)
+            if (stationWholeInfo.first?.size == stationWholeInfo.second?.size) {
+                stationWholeInfo.second?.let { availableValue -> availableList = availableValue }
+                stationWholeInfo.first?.let { stationValue -> createStationMarkerList(stationValue) }
+            }
         })
     }
 
     private fun createStationMarkerList(stationInfo: StationInfo) {
+        Log.d(TAG,"[createStationMarkerList]")
         stationInfo.iterator().forEach { infoItem ->
 
             // if stationMarkerMap already have this station info marker, return
@@ -261,12 +240,10 @@ class MapFragment : Fragment(), LocationListener {
                     )
                 )
 
-            val marker = mMap?.addMarker(markerOptions)
-            if (marker != null) {
-                marker.tag = infoItem
-            }
+            val marker = mMap.addMarker(markerOptions)
 
             if (marker != null) {
+                marker.tag = infoItem
                 stationMarkerMap[infoItem.stationUID] = marker
             }
         }
@@ -303,7 +280,6 @@ class MapFragment : Fragment(), LocationListener {
 //            mapViewModel.getStationInfo("NewTaipei")
 //            mapViewModel.getAvailabilityByCity("NewTaipei")
             //  1.應該根據目前的經緯度區分是哪個縣市，再呼叫view model的loadStationInfo
-
         }
     }
 

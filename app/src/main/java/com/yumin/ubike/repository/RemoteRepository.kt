@@ -84,7 +84,7 @@ class RemoteRepository {
 
     suspend fun getAvailabilityInfoNearBy(token: String, nearBy: String): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityInfoBearBy(token, nearBy, "JSON").enqueue(
+            remoteApiService.getAvailabilityInfoNearBy(token, nearBy, "JSON").enqueue(
                 object : Callback<AvailabilityInfo> {
                     override fun onResponse(
                         call: Call<AvailabilityInfo>,

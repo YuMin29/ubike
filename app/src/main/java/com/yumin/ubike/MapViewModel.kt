@@ -2,6 +2,7 @@ package com.yumin.ubike
 
 import android.content.Context
 import android.util.Log
+import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,14 +19,19 @@ class MapViewModel(private val repository: RemoteRepository, private val context
     var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
 
     var stationInfo = MutableLiveData<StationInfo>()
-    var stationInfoTypeAll = MutableLiveData<StationInfo>()
-    var stationInfoType1 = MutableLiveData<StationInfo>()
-    var stationInfoType2 = MutableLiveData<StationInfo>()
+    var stationInfoByType = MutableLiveData<StationInfo>()
 
     var availabilityInfo = MutableLiveData<AvailabilityInfo>()
-    var availabilityInfoTypeAll = MutableLiveData<AvailabilityInfo>()
-    var availabilityInfoType1 = MutableLiveData<AvailabilityInfo>()
-    var availabilityInfoType2 = MutableLiveData<AvailabilityInfo>()
+    var availabilityInfoByType = MutableLiveData<AvailabilityInfo>()
+
+    var stationWholeInfo : MediatorLiveData<Pair<StationInfo?,AvailabilityInfo?>> = MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>>().apply {
+        addSource(stationInfoByType) {
+            value = Pair(it,availabilityInfoByType.value)
+        }
+        addSource(availabilityInfoByType) {
+            value = Pair(stationInfoByType.value,it)
+        }
+    }
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -101,13 +107,7 @@ class MapViewModel(private val repository: RemoteRepository, private val context
             }
             filterStationInfo.add(infoItem)
         }
-
-        // post new station info
-        when (type) {
-            0 -> stationInfoTypeAll.postValue(filterStationInfo)
-            1 -> stationInfoType1.postValue(filterStationInfo)
-            2 -> stationInfoType2.postValue(filterStationInfo)
-        }
+        stationInfoByType.postValue(filterStationInfo)
     }
 
     fun getUbikeAvailabilityByType(type: Int){
@@ -122,12 +122,7 @@ class MapViewModel(private val repository: RemoteRepository, private val context
             }
             filterAvailabilityInfo.add(availabilityInfoItem)
         }
-
-        when(type) {
-            0 -> availabilityInfoTypeAll.postValue(filterAvailabilityInfo)
-            1 -> availabilityInfoType1.postValue(filterAvailabilityInfo)
-            2 -> availabilityInfoType2.postValue(filterAvailabilityInfo)
-        }
+        availabilityInfoByType.postValue(filterAvailabilityInfo)
     }
 
     companion object {

@@ -14,8 +14,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
+import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.fragment.app.Fragment
@@ -27,6 +29,10 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.maps.android.SphericalUtil
+import com.google.maps.android.clustering.ClusterItem
+import com.google.maps.android.clustering.ClusterManager
+import com.google.maps.android.clustering.view.DefaultClusterRenderer
+import com.google.maps.android.ui.IconGenerator
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
@@ -49,7 +55,8 @@ class MapFragment : Fragment(), LocationListener {
     private lateinit var currentLocationWhenStart: LatLng
     private var availableList: ArrayList<AvailabilityInfoItem> = ArrayList()
     private var ubikeType: Int = 0 // 0 -> all
-    private var stationMarkerMap : HashMap<String,Marker> = HashMap()
+    private lateinit var clusterManager: ClusterManager<StationClusterItem>
+    private var clusterItemMap : HashMap<String,StationClusterItem> = HashMap()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -62,7 +69,6 @@ class MapFragment : Fragment(), LocationListener {
         //Get current location by network
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
 
-
         // Initialize view model
         mapViewModel = MapViewModel(remoteRepository, requireContext())
 
@@ -72,14 +78,10 @@ class MapFragment : Fragment(), LocationListener {
             override fun onMapReady(googleMap: GoogleMap) {
                 Log.d(TAG, "[onMapReady]")
                 mMap = googleMap
+
+                setUpClusterManager()
+
                 mMap.isMyLocationEnabled = true
-                mMap.setOnMarkerClickListener(object : GoogleMap.OnMarkerClickListener {
-                    override fun onMarkerClick(marker: Marker): Boolean {
-                        // open bottom sheet dialog
-                        showBottomSheetDialog(marker)
-                        return true
-                    }
-                })
 
                 mMap.setOnCameraMoveStartedListener {
                     Log.d(TAG, "[setOnCameraMoveStartedListener]")
@@ -104,21 +106,15 @@ class MapFragment : Fragment(), LocationListener {
                         }
                     })
                     fragmentMapBinding.tempUse.startAnimation(animation)
-                    // Query station from view model
-                    // TODO: 20230115
-                    // 取得目前的ZOOM LEVEL，算出目前畫面的範圍，再利用near by 去取得範圍內的站點資訊(最大範圍:1km)
 
                     val distance = calculateDistance()
-                    val currentLatLng = mMap.cameraPosition.target
+                    if (distance > 15000) {
+                        Log.d(TAG,"[setOnCameraIdleListener] Distance : $distance > 1500 , return")
+                        return@setOnCameraIdleListener
+                    }
 
-                    Log.d(
-                        TAG,
-                        "[setOnCameraIdleListener] current position = " + mMap.cameraPosition.toString()
-                    )
-                    Log.d(
-                        TAG,
-                        "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}"
-                    )
+                    val currentLatLng = mMap.cameraPosition.target
+                    Log.d(TAG, "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}")
 
                     mapViewModel.getStationInfoNearBy(
                         currentLatLng.latitude,
@@ -151,31 +147,30 @@ class MapFragment : Fragment(), LocationListener {
         initButton()
 
         observeViewModelData()
-
         return fragmentMapBinding.root
     }
 
     private fun initButton() {
         fragmentMapBinding.ubikeAll.setOnClickListener {
             ubikeType = 0
-            stationMarkerMap.clear()
-            mMap?.clear()
+            clusterManager.clearItems()
+            clusterItemMap.clear()
             mapViewModel.getUbikeAvailabilityByType(ubikeType)
             mapViewModel.getUbikeInfoByType(ubikeType)
         }
 
         fragmentMapBinding.ubike10.setOnClickListener {
             ubikeType = 1
-            stationMarkerMap.clear()
-            mMap?.clear()
+            clusterManager.clearItems()
+            clusterItemMap.clear()
             mapViewModel.getUbikeAvailabilityByType(ubikeType)
             mapViewModel.getUbikeInfoByType(ubikeType)
         }
 
         fragmentMapBinding.ubike20.setOnClickListener {
             ubikeType = 2
-            stationMarkerMap.clear()
-            mMap?.clear()
+            clusterManager.clearItems()
+            clusterItemMap.clear()
             // update map marker
             mapViewModel.getUbikeAvailabilityByType(ubikeType)
             mapViewModel.getUbikeInfoByType(ubikeType)
@@ -205,48 +200,9 @@ class MapFragment : Fragment(), LocationListener {
             Log.d(TAG,"[observeViewModelData] stationWholeInfo second : "+stationWholeInfo.second?.size)
             if (stationWholeInfo.first?.size == stationWholeInfo.second?.size) {
                 stationWholeInfo.second?.let { availableValue -> availableList = availableValue }
-                stationWholeInfo.first?.let { stationValue -> createStationMarkerList(stationValue) }
+                stationWholeInfo.first?.let { stationValue -> addClusterItems(stationValue) }
             }
         })
-    }
-
-    private fun createStationMarkerList(stationInfo: StationInfo) {
-        Log.d(TAG,"[createStationMarkerList]")
-        stationInfo.iterator().forEach { infoItem ->
-
-            // if stationMarkerMap already have this station info marker, return
-            if (stationMarkerMap.containsKey(infoItem.stationUID)) {
-                Log.d(TAG,"[createStationMarkerList] station name = ${infoItem.stationName}, " +
-                        "station UID = ${infoItem.stationUID}")
-                return@forEach
-            }
-
-            val stationName = infoItem.stationName.zhTw.split("_")[1]
-            val availableRent = findAvailableRent(infoItem.stationID)
-            val availableReturn = findAvailableReturn(infoItem.stationID)
-            getRateIcon(availableRent, availableReturn)
-            val markerOptions = MarkerOptions()
-                .position(
-                    LatLng(
-                        infoItem.stationPosition.positionLat,
-                        infoItem.stationPosition.positionLon
-                    )
-                )
-                .title("$stationName\n可借")
-                .icon(
-                    getBitmapFromVectorDrawable(
-                        requireContext(),
-                        getRateIcon(availableRent, availableReturn)
-                    )
-                )
-
-            val marker = mMap.addMarker(markerOptions)
-
-            if (marker != null) {
-                marker.tag = infoItem
-                stationMarkerMap[infoItem.stationUID] = marker
-            }
-        }
     }
 
     private fun getBitmapFromVectorDrawable(context: Context?, drawableId: Int): BitmapDescriptor {
@@ -277,16 +233,13 @@ class MapFragment : Fragment(), LocationListener {
             currentLocationWhenStart = LatLng(location.latitude, location.longitude)
             // move to current position
             mMap?.moveCamera(CameraUpdateFactory.newLatLng(currentLocationWhenStart))
-//            mapViewModel.getStationInfo("NewTaipei")
-//            mapViewModel.getAvailabilityByCity("NewTaipei")
-            //  1.應該根據目前的經緯度區分是哪個縣市，再呼叫view model的loadStationInfo
         }
     }
 
-    private fun showBottomSheetDialog(marker: Marker) {
+    private fun showBottomSheetDialog(stationInfoItem: StationInfoItem) {
         val dialog = BottomSheetDialog(requireContext(), R.style.Theme_NoWiredStrapInNavigationBar)
         val view = layoutInflater.inflate(R.layout.bottom_sheet_dialog_layout, null)
-        val stationInfoItem = marker.tag as StationInfoItem
+        val stationInfoItem = stationInfoItem
         val stationNameByTag = stationInfoItem.stationName.zhTw.split("_")
         val stationId = stationInfoItem.stationID
 
@@ -349,5 +302,113 @@ class MapFragment : Fragment(), LocationListener {
                 return item.AvailableReturnBikes
         }
         return 0
+    }
+
+    private fun setUpClusterManager(){
+        clusterManager = ClusterManager(context,mMap)
+        clusterManager.renderer = StationClusterRenderer(context,mMap,clusterManager)
+        mMap.setOnMarkerClickListener(clusterManager)
+        mMap.setOnInfoWindowClickListener(clusterManager)
+        clusterManager.setOnClusterClickListener {
+            Toast.makeText(context,"[setOnClusterClickListener]",Toast.LENGTH_SHORT).show()
+            true
+        }
+        clusterManager.setOnClusterInfoWindowClickListener {
+            Toast.makeText(context,"[setOnClusterInfoWindowClickListener]",Toast.LENGTH_SHORT).show()
+        }
+
+
+        clusterManager.setOnClusterItemClickListener {
+            Toast.makeText(context,"[setOnClusterItemClickListener]",Toast.LENGTH_SHORT).show()
+            showBottomSheetDialog(it.getStationInfoItem())
+            true
+        }
+        clusterManager.setOnClusterItemInfoWindowLongClickListener {
+            Toast.makeText(context,"[setOnClusterItemInfoWindowLongClickListener]",Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun addClusterItems(stationInfo : StationInfo) {
+        stationInfo.forEach { stationInfoItem ->
+            if (clusterItemMap.containsKey(stationInfoItem.stationUID))
+                return@forEach
+
+            val availableRent = findAvailableRent(stationInfoItem.stationID)
+            val availableReturn = findAvailableReturn(stationInfoItem.stationID)
+            val iconId = getRateIcon(availableRent, availableReturn)
+
+            val myItem = StationClusterItem(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon, "Title ${stationInfoItem.stationName}",
+                "Snippet ${stationInfoItem.stationID}",iconId,stationInfoItem)
+
+            clusterManager.addItem(myItem)
+            clusterItemMap.put(stationInfoItem.stationUID,myItem)
+        }
+
+        clusterManager.cluster()
+        clusterManager.onCameraIdle()
+    }
+
+    inner class StationClusterRenderer(context: Context?, map: GoogleMap?, clusterManager: ClusterManager<StationClusterItem>?) : DefaultClusterRenderer<StationClusterItem>(context, map, clusterManager) {
+        private val iconGenerator = IconGenerator(context)
+        private val imageView = ImageView(context)
+
+        init {
+            imageView.layoutParams = ViewGroup.LayoutParams(100,100)
+            imageView.setPadding(2,2,2,2)
+            iconGenerator.setContentView(imageView)
+        }
+
+        override fun onBeforeClusterItemRendered(item: StationClusterItem, markerOptions: MarkerOptions) {
+            markerOptions.icon(getItemIcon(item)).title(item.title)
+        }
+
+        override fun onClusterItemUpdated(item: StationClusterItem, marker: Marker) {
+            marker.setIcon(getItemIcon(item))
+            marker.title = item.title
+        }
+
+        private fun getItemIcon(item:StationClusterItem): BitmapDescriptor {
+            imageView.setImageResource(item.imageId)
+            iconGenerator.setBackground(null)
+            val icon  = iconGenerator.makeIcon()
+            return BitmapDescriptorFactory.fromBitmap(icon)
+        }
+    }
+
+    inner class StationClusterItem() : ClusterItem{
+        private lateinit var position:LatLng
+        private lateinit var title:String
+        private lateinit var snippet:String
+        private val zIndex:Float? = null
+        var imageId:Int = 0
+        private lateinit var stationInfoItem:StationInfoItem
+
+        constructor(latitude:Double, longitude:Double, title:String, snippet:String, imageId:Int, stationInfoItem: StationInfoItem) : this() {
+            this.position = LatLng(latitude,longitude)
+            this.title = title
+            this.snippet = snippet
+            this.imageId = imageId
+            this.stationInfoItem = stationInfoItem
+        }
+
+        override fun getPosition(): LatLng {
+            return position
+        }
+
+        override fun getTitle(): String? {
+            return title
+        }
+
+        override fun getSnippet(): String? {
+            return snippet
+        }
+
+        override fun getZIndex(): Float? {
+            return zIndex
+        }
+
+        fun getStationInfoItem(): StationInfoItem {
+            return stationInfoItem
+        }
     }
 }

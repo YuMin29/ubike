@@ -31,6 +31,7 @@ interface ApiService {
     fun getStationInfoNearBy(
         @Header("authorization") token: String,
         @Query("\$spatialFilter") nearBy: String,
+        @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String
     ): Call<StationInfo>
 
@@ -38,6 +39,7 @@ interface ApiService {
     fun getAvailabilityInfoNearBy(
         @Header("authorization") token: String,
         @Query("\$spatialFilter") nearBy: String,
+        @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String
     ): Call<AvailabilityInfo>
 }

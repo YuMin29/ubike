@@ -1,6 +1,9 @@
 package com.yumin.ubike
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.location.Location
@@ -33,11 +36,13 @@ import com.google.maps.android.clustering.ClusterItem
 import com.google.maps.android.clustering.ClusterManager
 import com.google.maps.android.clustering.view.DefaultClusterRenderer
 import com.google.maps.android.ui.IconGenerator
+import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentMapBinding
 import com.yumin.ubike.repository.RemoteRepository
+import java.util.*
 
 
 /**
@@ -57,6 +62,10 @@ class MapFragment : Fragment(), LocationListener {
     private var ubikeType: Int = 0 // 0 -> all
     private lateinit var clusterManager: ClusterManager<StationClusterItem>
     private var clusterItemMap : HashMap<String,StationClusterItem> = HashMap()
+    private lateinit var currentLatLng:LatLng
+    private var currentDistance:Double = 0.0
+    private lateinit var latestRefreshTime: Date
+    private var isRefreshed = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -92,6 +101,7 @@ class MapFragment : Fragment(), LocationListener {
                 }
 
                 mMap.setOnCameraIdleListener {
+                    Log.d(TAG,"[setOnCameraIdleListener]")
                     val animation = AnimationUtils.loadAnimation(context, R.anim.position_animation)
                     animation.setAnimationListener(object : Animation.AnimationListener {
                         override fun onAnimationStart(animation: Animation?) {
@@ -107,27 +117,22 @@ class MapFragment : Fragment(), LocationListener {
                     })
                     fragmentMapBinding.tempUse.startAnimation(animation)
 
-                    val distance = calculateDistance()
-                    if (distance > 15000) {
-                        Log.d(TAG,"[setOnCameraIdleListener] Distance : $distance > 1500 , return")
+                    currentDistance = calculateDistance()
+                    if (currentDistance > 15000) {
+                        Log.d(TAG,"[setOnCameraIdleListener] Distance : $currentDistance > 1500 , return")
                         return@setOnCameraIdleListener
                     }
 
-                    val currentLatLng = mMap.cameraPosition.target
+                    currentLatLng = mMap.cameraPosition.target
                     Log.d(TAG, "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}")
 
-                    mapViewModel.getStationInfoNearBy(
-                        currentLatLng.latitude,
-                        currentLatLng.longitude,
-                        distance.toInt(),
-                        ubikeType
-                    )
-                    mapViewModel.getAvailabilityNearBy(
-                        currentLatLng.latitude,
-                        currentLatLng.longitude,
-                        distance.toInt(),
-                        ubikeType
-                    )
+                    getCurrentStationInfo()
+
+                    Log.d(TAG,"[setOnCameraIdleListener] lat : ${currentLatLng.latitude}, " +
+                            "lon : ${currentLatLng.longitude}, distance : ${currentDistance.toInt()}")
+
+                    if (!isRefreshed)
+                        latestRefreshTime = Calendar.getInstance().time
                 }
 
                 // show current location button
@@ -147,33 +152,52 @@ class MapFragment : Fragment(), LocationListener {
         initButton()
 
         observeViewModelData()
+
+        context?.registerReceiver(object : BroadcastReceiver(){
+            override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d(TAG,"[onReceive] intent action : "+intent?.action.toString())
+                refreshAvailabilityData()
+                // 再根據目前available list上沒有的station cluster 從 map上刪除
+                // 紀錄更新時間
+                if (!isRefreshed)
+                    isRefreshed = true
+
+                latestRefreshTime = Calendar.getInstance().time
+            }
+        }, IntentFilter(Intent.ACTION_TIME_TICK))
+
         return fragmentMapBinding.root
+    }
+
+    private fun refreshAvailabilityData() {
+        Log.d(TAG,"[refreshAvailabilityData] lat : ${currentLatLng.latitude}, " +
+                "lon : ${currentLatLng.longitude}, distance : ${currentDistance.toInt()}")
+        mapViewModel.getAvailabilityNearBy(
+            currentLatLng.latitude,
+            currentLatLng.longitude,
+            currentDistance.toInt(),
+            ubikeType,
+            true
+        )
     }
 
     private fun initButton() {
         fragmentMapBinding.ubikeAll.setOnClickListener {
             ubikeType = 0
-            clusterManager.clearItems()
-            clusterItemMap.clear()
-            mapViewModel.getUbikeAvailabilityByType(ubikeType)
-            mapViewModel.getUbikeInfoByType(ubikeType)
+            clearMap()
+            getCurrentStationInfo()
         }
 
         fragmentMapBinding.ubike10.setOnClickListener {
             ubikeType = 1
-            clusterManager.clearItems()
-            clusterItemMap.clear()
-            mapViewModel.getUbikeAvailabilityByType(ubikeType)
-            mapViewModel.getUbikeInfoByType(ubikeType)
+            clearMap()
+            getCurrentStationInfo()
         }
 
         fragmentMapBinding.ubike20.setOnClickListener {
             ubikeType = 2
-            clusterManager.clearItems()
-            clusterItemMap.clear()
-            // update map marker
-            mapViewModel.getUbikeAvailabilityByType(ubikeType)
-            mapViewModel.getUbikeInfoByType(ubikeType)
+            clearMap()
+            getCurrentStationInfo()
         }
 
         fragmentMapBinding.favoriteStationInfo.setOnClickListener { TODO("Switch to favorite fragment") }
@@ -183,6 +207,27 @@ class MapFragment : Fragment(), LocationListener {
             fragmentManager?.beginTransaction()
                 ?.replace(R.id.frame_layout, StationInfoListFragment())?.commit()
         }
+    }
+
+    private fun clearMap() {
+        clusterManager.clearItems()
+        clusterItemMap.clear()
+    }
+
+    private fun getCurrentStationInfo() {
+        mapViewModel.getStationInfoNearBy(
+            currentLatLng.latitude,
+            currentLatLng.longitude,
+            currentDistance.toInt(),
+            ubikeType
+        )
+        mapViewModel.getAvailabilityNearBy(
+            currentLatLng.latitude,
+            currentLatLng.longitude,
+            currentDistance.toInt(),
+            ubikeType,
+            false
+        )
     }
 
     private fun calculateDistance(): Double {
@@ -202,6 +247,13 @@ class MapFragment : Fragment(), LocationListener {
                 stationWholeInfo.second?.let { availableValue -> availableList = availableValue }
                 stationWholeInfo.first?.let { stationValue -> addClusterItems(stationValue) }
             }
+        })
+
+        mapViewModel.refreshAvailability.observe(viewLifecycleOwner, Observer { refreshAvailability ->
+            Log.d(TAG,"[observeViewModelData] refreshAvailability size : "+refreshAvailability.size)
+            availableList = refreshAvailability
+            // TODO : need to update cluster icon
+            refreshClusterItems(refreshAvailability)
         })
     }
 
@@ -241,7 +293,24 @@ class MapFragment : Fragment(), LocationListener {
         val view = layoutInflater.inflate(R.layout.bottom_sheet_dialog_layout, null)
         val stationInfoItem = stationInfoItem
         val stationNameByTag = stationInfoItem.stationName.zhTw.split("_")
-        val stationId = stationInfoItem.stationID
+        val stationId = stationInfoItem.stationUID
+
+        // 顯示最後更新時間
+        var currentTimeDate = Calendar.getInstance().time
+        var diff = currentTimeDate.time - latestRefreshTime.time
+        val diffSeconds = (diff / 1000).toInt()
+        Log.d(TAG, "[showBottomSheetDialog] latestRefreshTime time = ${latestRefreshTime.toString()}")
+        Log.d(TAG, "[showBottomSheetDialog] currentTimeDate = ${currentTimeDate.toString()}")
+
+        val updateTime = view.findViewById<TextView>(R.id.updateTime)
+        updateTime.text = diffSeconds.toString() + "秒前更新"
+
+        // 顯示站點距離
+        val stationLatLng = LatLng(stationInfoItem.stationPosition.positionLat,stationInfoItem.stationPosition.positionLon)
+        val distance = getStationDistance(stationLatLng)
+        val showDistance = view.findViewById<TextView>(R.id.distance)
+        showDistance.text = "距離"+distance
+        Log.d(TAG,"[showBottomSheetDialog] show distance = "+getStationDistance(stationLatLng))
 
         val stationName = view.findViewById<TextView>(R.id.station_name)
         stationName.text = stationNameByTag[1]
@@ -263,8 +332,20 @@ class MapFragment : Fragment(), LocationListener {
         dialog.show()
     }
 
+    private fun getStationDistance(stationLatLng:LatLng): String {
+        var stationLocation = Location("station")
+        stationLocation.latitude = stationLatLng.latitude
+        stationLocation.longitude = stationLatLng.longitude
+        val distance = stationLocation.distanceTo(mMap.myLocation)
+
+        return if (distance > 1000) {
+            "%.2f".format(distance/1000).toString()+"公里"
+        } else
+            distance.toInt().toString()+"公尺"
+    }
+
     private fun getRateIcon(availableRent: Int, availableReturn: Int): Int {
-        Log.d(TAG, "[getRateIcon] availableRent = $availableRent ,availableReturn = $availableReturn")
+//        Log.d(TAG, "[getRateIcon] availableRent = $availableRent ,availableReturn = $availableReturn")
 
         if (availableRent == 0 && availableReturn == 0)
             return R.drawable.ic_ubike_icon_0
@@ -290,7 +371,7 @@ class MapFragment : Fragment(), LocationListener {
 
     private fun findAvailableRent(stationId: String): Int {
         for (item in availableList) {
-            if (item.StationID == stationId)
+            if (item.StationUID == stationId)
                 return item.AvailableRentBikes
         }
         return 0
@@ -298,7 +379,7 @@ class MapFragment : Fragment(), LocationListener {
 
     private fun findAvailableReturn(stationId: String): Int {
         for (item in availableList) {
-            if (item.StationID == stationId)
+            if (item.StationUID == stationId)
                 return item.AvailableReturnBikes
         }
         return 0
@@ -328,21 +409,55 @@ class MapFragment : Fragment(), LocationListener {
         }
     }
 
-    private fun addClusterItems(stationInfo : StationInfo) {
-        stationInfo.forEach { stationInfoItem ->
-            if (clusterItemMap.containsKey(stationInfoItem.stationUID))
-                return@forEach
-
-            val availableRent = findAvailableRent(stationInfoItem.stationID)
-            val availableReturn = findAvailableReturn(stationInfoItem.stationID)
-            val iconId = getRateIcon(availableRent, availableReturn)
-
-            val myItem = StationClusterItem(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon, "Title ${stationInfoItem.stationName}",
-                "Snippet ${stationInfoItem.stationID}",iconId,stationInfoItem)
-
-            clusterManager.addItem(myItem)
-            clusterItemMap.put(stationInfoItem.stationUID,myItem)
+    private fun refreshClusterItems(availabilityInfo: AvailabilityInfo){
+        var refreshTimes = 0
+        availabilityInfo.forEach{ item ->
+            if (clusterItemMap.containsKey(item.StationUID)) {
+                // need to update icon
+                val updateItem = clusterItemMap.get(item.StationUID)
+                val iconId = getRateIcon(findAvailableRent(item.StationUID), findAvailableReturn(item.StationUID))
+                updateItem?.imageId = iconId
+                val success = clusterManager.updateItem(updateItem)
+                Log.d(TAG,"[refreshClusterItems] success = $success")
+                refreshTimes++
+            }
+            clusterManager.cluster()
+            Log.d(TAG,"[refreshClusterItems] refreshTimes = $refreshTimes")
         }
+    }
+
+    private fun addClusterItems(stationInfo : StationInfo) {
+        var addTimes = 0
+        var updateTimes = 0
+        stationInfo.forEach { stationInfoItem ->
+            if (clusterItemMap.containsKey(stationInfoItem.stationUID)) {
+                // need to update icon
+                val updateItem = clusterItemMap[stationInfoItem.stationUID]
+                val iconId = getRateIcon(findAvailableRent(stationInfoItem.stationUID), findAvailableReturn(stationInfoItem.stationUID))
+                updateItem?.imageId = iconId
+                val success = clusterManager.updateItem(updateItem)
+                updateTimes++
+            } else {
+                val availableRent = findAvailableRent(stationInfoItem.stationUID)
+                val availableReturn = findAvailableReturn(stationInfoItem.stationUID)
+                val iconId = getRateIcon(availableRent, availableReturn)
+
+                val myItem = StationClusterItem(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon, "Title ${stationInfoItem.stationName}",
+                    "Snippet ${stationInfoItem.stationUID}",iconId,stationInfoItem)
+                clusterManager.addItem(myItem)
+                clusterItemMap.put(stationInfoItem.stationUID,myItem)
+                addTimes++
+            }
+        }
+
+
+
+        availableList.forEach{ availabilityInfoItem ->
+            Log.d(TAG,"[addClusterItems] [update] availability item update time : ${availabilityInfoItem.UpdateTime}")
+        }
+
+        Log.d(TAG,"[addClusterItems] [update] availability SIZE : ${availableList.size}")
+        Log.d(TAG,"[addClusterItems] addTimes : $addTimes, updateTimes : $updateTimes")
 
         clusterManager.cluster()
         clusterManager.onCameraIdle()

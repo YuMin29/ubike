@@ -19,17 +19,17 @@ class MapViewModel(private val repository: RemoteRepository, private val context
     var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
 
     var stationInfo = MutableLiveData<StationInfo>()
-    var stationInfoByType = MutableLiveData<StationInfo>()
 
     var availabilityInfo = MutableLiveData<AvailabilityInfo>()
-    var availabilityInfoByType = MutableLiveData<AvailabilityInfo>()
+
+    var refreshAvailability = MutableLiveData<AvailabilityInfo>()
 
     var stationWholeInfo : MediatorLiveData<Pair<StationInfo?,AvailabilityInfo?>> = MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>>().apply {
-        addSource(stationInfoByType) {
-            value = Pair(it,availabilityInfoByType.value)
+        addSource(stationInfo) {
+            value = Pair(it,availabilityInfo.value)
         }
-        addSource(availabilityInfoByType) {
-            value = Pair(stationInfoByType.value,it)
+        addSource(availabilityInfo) {
+            value = Pair(stationInfo.value,it)
         }
     }
 
@@ -37,6 +37,24 @@ class MapViewModel(private val repository: RemoteRepository, private val context
         viewModelScope.launch(Dispatchers.IO) {
             token = repository.getToken()
         }
+
+        // TODO 20230208 要做一分鐘自動更新一次的功能
+        // 要把最新一次座標&距離儲存起來，來當作最近一次更新的數據
+        // 利用 CountdownTimer
+
+        // TODO 20230208 為搜尋頁面，撈全台縣市的資料回來
+        // 也需要每分鐘更新一次資料
+        // 利用 CountdownTimer
+
+        // TODO 20230208 列表顯示，另開一個Activity
+        // 把當前有的資料都線顯示在card view中
+        // 再根據使用者滑到底部來決定增加搜尋的距離顯示
+        // 跟地圖模式的live data分開
+        // 也需要每分鐘更新一次資料
+    }
+
+    fun getAllCityStationInfo(){
+
     }
 
     fun getStationInfo(city: String) {
@@ -55,28 +73,52 @@ class MapViewModel(private val repository: RemoteRepository, private val context
 
     fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
         viewModelScope.launch(Dispatchers.IO) {
+
+            var queryServiceType: String? = when (type) {
+                1 -> "ServiceType eq '1'"
+                2 -> "ServiceType eq '2'"
+                else -> null
+            }
+
             if (checkToken()) {
                 stationInfo.postValue(
                     repository.getStationInfoNearBy(
                         token,
-                        "nearby($latitude, $longitude, $distance)"
+                        "nearby($latitude, $longitude, $distance)",
+                        queryServiceType
                     )
                 )
-                getUbikeInfoByType(type)
             }
         }
     }
 
-    fun getAvailabilityNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
+    fun getAvailabilityNearBy(latitude: Double, longitude: Double, distance: Int, type: Int, refresh:Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
+
+            var queryServiceType: String? = when(type) {
+                1 -> "ServiceType eq '1'"
+                2 -> "ServiceType eq '2'"
+                else -> null
+            }
+
             if (checkToken()) {
-                availabilityInfo.postValue(
-                    repository.getAvailabilityInfoNearBy(
-                        token,
-                        "nearby($latitude, $longitude, $distance)"
+                if (!refresh) {
+                    availabilityInfo.postValue(
+                        repository.getAvailabilityInfoNearBy(
+                            token,
+                            "nearby($latitude, $longitude, $distance)",
+                            queryServiceType
+                        )
                     )
-                )
-                getUbikeAvailabilityByType(type)
+                } else {
+                    refreshAvailability.postValue(
+                        repository.getAvailabilityInfoNearBy(
+                            token,
+                            "nearby($latitude, $longitude, $distance)",
+                            queryServiceType
+                        )
+                    )
+                }
             }
         }
     }
@@ -92,37 +134,6 @@ class MapViewModel(private val repository: RemoteRepository, private val context
             result = true
         }
         return result
-    }
-
-    fun getUbikeInfoByType(type: Int) {
-        // 從這邊過濾不同類型的ubike
-        val filterStationInfo = StationInfo()
-
-        stationInfo.value?.iterator()?.forEach { infoItem ->
-            Log.d(TAG, "[getUbikeInfoByType] service type = " + infoItem.serviceType)
-
-            if (type != 0 && type != infoItem.serviceType) {
-                Log.d(TAG, "[getUbikeInfoByType] RETURN")
-                return@forEach
-            }
-            filterStationInfo.add(infoItem)
-        }
-        stationInfoByType.postValue(filterStationInfo)
-    }
-
-    fun getUbikeAvailabilityByType(type: Int){
-        val filterAvailabilityInfo = AvailabilityInfo()
-
-        availabilityInfo.value?.iterator()?.forEach { availabilityInfoItem ->
-            Log.d(TAG, "[getUbikeAvailabilityByType] service type = " + availabilityInfoItem.ServiceType)
-
-            if (type != 0 && type != availabilityInfoItem.ServiceType) {
-                Log.d(TAG, "[getUbikeAvailabilityByType] RETURN")
-                return@forEach
-            }
-            filterAvailabilityInfo.add(availabilityInfoItem)
-        }
-        availabilityInfoByType.postValue(filterAvailabilityInfo)
     }
 
     companion object {

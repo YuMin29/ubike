@@ -60,10 +60,10 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getStationInfoNearBy(token: String, nearBy: String): StationInfo {
+    suspend fun getStationInfoNearBy(token: String, nearBy: String, serviceType: String?): StationInfo {
         Log.d(TAG, "[getStationInfoNearBy] nearBy = $nearBy")
         return suspendCancellableCoroutine {
-            remoteApiService.getStationInfoNearBy(token, nearBy, "JSON").enqueue(
+            remoteApiService.getStationInfoNearBy(token, nearBy, serviceType,"JSON").enqueue(
                 object : Callback<StationInfo> {
                     override fun onResponse(
                         call: Call<StationInfo>,
@@ -82,9 +82,9 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getAvailabilityInfoNearBy(token: String, nearBy: String): AvailabilityInfo {
+    suspend fun getAvailabilityInfoNearBy(token: String, nearBy: String,serviceType: String?): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityInfoNearBy(token, nearBy, "JSON").enqueue(
+            remoteApiService.getAvailabilityInfoNearBy(token, nearBy, serviceType,"JSON").enqueue(
                 object : Callback<AvailabilityInfo> {
                     override fun onResponse(
                         call: Call<AvailabilityInfo>,

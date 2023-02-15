@@ -203,9 +203,9 @@ class MapFragment : Fragment(), LocationListener {
         fragmentMapBinding.favoriteStationInfo.setOnClickListener { TODO("Switch to favorite fragment") }
 
         fragmentMapBinding.stationInfoListView.setOnClickListener {
-            // 切換fragment
-            fragmentManager?.beginTransaction()
-                ?.replace(R.id.frame_layout, StationInfoListFragment())?.commit()
+            // switch to StationListActivity
+            val intent = Intent(context,StationListActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -255,21 +255,6 @@ class MapFragment : Fragment(), LocationListener {
             // TODO : need to update cluster icon
             refreshClusterItems(refreshAvailability)
         })
-    }
-
-    private fun getBitmapFromVectorDrawable(context: Context?, drawableId: Int): BitmapDescriptor {
-        var drawable = ContextCompat.getDrawable(requireContext(), drawableId)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            drawable = DrawableCompat.wrap(drawable!!).mutate()
-        }
-        val bitmap = Bitmap.createBitmap(
-            drawable!!.intrinsicWidth,
-            drawable.intrinsicHeight, Bitmap.Config.ARGB_8888
-        )
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight())
-        drawable.draw(canvas)
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     override fun onDestroyView() {
@@ -397,7 +382,6 @@ class MapFragment : Fragment(), LocationListener {
         clusterManager.setOnClusterInfoWindowClickListener {
             Toast.makeText(context,"[setOnClusterInfoWindowClickListener]",Toast.LENGTH_SHORT).show()
         }
-
 
         clusterManager.setOnClusterItemClickListener {
             Toast.makeText(context,"[setOnClusterItemClickListener]",Toast.LENGTH_SHORT).show()

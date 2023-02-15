@@ -144,7 +144,7 @@
             android:textColor="@color/primary_800" />
 
         <Button
-            android:id="@+id/button3"
+            android:id="@+id/share"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

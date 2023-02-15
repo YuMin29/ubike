@@ -8,5 +8,6 @@
     <string name="ubike_2_0">Ubike 2.0</string>
     <string name="ubike_1_0">Ubike 1.0</string>
     <string name="ubike_all">Ubike All</string>
-    <string name="station_infi_list">列表顯示</string>
+    <string name="station_info_list">列表顯示</string>
+    <string name="title_activity_station_list">站點列表</string>
 </resources>

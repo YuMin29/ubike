@@ -2,6 +2,7 @@ package com.yumin.ubike.repository
 
 import android.util.Log
 import com.yumin.ubike.BuildConfig
+import com.yumin.ubike.SessionManager
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.StationInfo
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -11,16 +12,16 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-class RemoteRepository {
+class RemoteRepository(val sessionManager: SessionManager) {
     companion object {
         const val TAG = "[RemoteRepository]"
     }
 
     private var remoteApiService: ApiService = ApiServiceManager.apiService
 
-    suspend fun getAvailabilityByCity(token: String, city: String): AvailabilityInfo {
+    suspend fun getAvailabilityByCity(city: String): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityByCity(token, city).enqueue(
+            remoteApiService.getAvailabilityByCity(sessionManager.fetchAuthToken(), city).enqueue(
                 object : Callback<AvailabilityInfo> {
                     override fun onResponse(
                         call: Call<AvailabilityInfo>,
@@ -39,9 +40,9 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getStationInfoByCity(token: String, city: String): StationInfo {
+    suspend fun getStationInfoByCity(city: String): StationInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getStationInfoByCity(token, city).enqueue(
+            remoteApiService.getStationInfoByCity(sessionManager.fetchAuthToken(), city).enqueue(
                 object : Callback<StationInfo> {
                     override fun onResponse(
                         call: Call<StationInfo>,
@@ -60,10 +61,15 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getStationInfoNearBy(token: String, nearBy: String, serviceType: String?): StationInfo {
+    suspend fun getStationInfoNearBy(nearBy: String, serviceType: String?): StationInfo {
         Log.d(TAG, "[getStationInfoNearBy] nearBy = $nearBy")
         return suspendCancellableCoroutine {
-            remoteApiService.getStationInfoNearBy(token, nearBy, serviceType,"JSON").enqueue(
+            remoteApiService.getStationInfoNearBy(
+                sessionManager.fetchAuthToken(),
+                nearBy,
+                serviceType,
+                "JSON"
+            ).enqueue(
                 object : Callback<StationInfo> {
                     override fun onResponse(
                         call: Call<StationInfo>,
@@ -82,9 +88,14 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getAvailabilityInfoNearBy(token: String, nearBy: String,serviceType: String?): AvailabilityInfo {
+    suspend fun getAvailabilityInfoNearBy(nearBy: String, serviceType: String?): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityInfoNearBy(token, nearBy, serviceType,"JSON").enqueue(
+            remoteApiService.getAvailabilityInfoNearBy(
+                sessionManager.fetchAuthToken(),
+                nearBy,
+                serviceType,
+                "JSON"
+            ).enqueue(
                 object : Callback<AvailabilityInfo> {
                     override fun onResponse(
                         call: Call<AvailabilityInfo>,
@@ -103,7 +114,7 @@ class RemoteRepository {
         }
     }
 
-    suspend fun getToken(): String {
+    suspend fun getToken() {
         // suspendCancellableCoroutine -> 具有回傳值，且可以返回exception
         return suspendCancellableCoroutine {
             remoteApiService.getToken(
@@ -123,8 +134,9 @@ class RemoteRepository {
                             "getToken onResponse access_token = " + jsonObject.get("access_token")
                         )
                         val token = jsonObject.get("access_token").toString()
-                        ApiServiceManager.tokenFromServer = String.format("Bearer %s", token)
-                        it.resumeWith(Result.success(String.format("Bearer %s", token)))
+//                        ApiServiceManager.tokenFromServer = String.format("Bearer %s", token)
+                        sessionManager.saveAuthToken(String.format("Bearer %s", token))
+//                        it.resumeWith(Result.success(String.format("Bearer %s", token)))
                     }
 
                     override fun onFailure(call: Call<ResponseBody>, t: Throwable) {

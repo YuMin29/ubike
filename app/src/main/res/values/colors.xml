@@ -11,4 +11,6 @@
     <color name="primary_800">#232f34</color>
     <color name="primary_600">#4a6572</color>
     <color name="secondary_orange">#F9AA33</color>
+    <color name="light_grey">#D3D3D3</color>
+    <color name="pink">#D3BBB7</color>
 </resources>

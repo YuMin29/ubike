@@ -17,19 +17,19 @@ interface ApiService {
 
     @GET("api/basic/v2/Bike/Station/City/{City}")
     fun getStationInfoByCity(
-        @Header("authorization") token: String,
+        @Header("authorization") token: String? = null,
         @Path("City") city: String
     ): Call<StationInfo>
 
     @GET("api/basic/v2/Bike/Availability/City/{City}")
     fun getAvailabilityByCity(
-        @Header("authorization") token: String,
+        @Header("authorization") token: String? = null,
         @Path("City") city: String
     ): Call<AvailabilityInfo>
 
     @GET("api/advanced/v2/Bike/Station/NearBy")
     fun getStationInfoNearBy(
-        @Header("authorization") token: String,
+        @Header("authorization") token: String? = null,
         @Query("\$spatialFilter") nearBy: String,
         @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String
@@ -37,7 +37,7 @@ interface ApiService {
 
     @GET("api/advanced/v2/Bike/Availability/NearBy")
     fun getAvailabilityInfoNearBy(
-        @Header("authorization") token: String,
+        @Header("authorization") token: String? = null,
         @Query("\$spatialFilter") nearBy: String,
         @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String

@@ -2,6 +2,7 @@ package com.yumin.ubike
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -9,7 +10,11 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.yumin.ubike.databinding.ActivityMapsBinding
+import com.yumin.ubike.repository.RemoteRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 /**
@@ -20,6 +25,11 @@ class MapsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
 
+    companion object {
+        lateinit var sessionManager: SessionManager
+        lateinit var repository: RemoteRepository
+    }
+
     override fun onStart() {
         super.onStart()
         // request location runtime permissions
@@ -28,6 +38,8 @@ class MapsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "[onCreate] ")
+
         // Initialize view
         binding = ActivityMapsBinding.inflate(layoutInflater)
         layout = binding.root
@@ -38,6 +50,29 @@ class MapsActivity : AppCompatActivity() {
         // Open fragment
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
 
+        sessionManager = SessionManager(this)
+        repository = RemoteRepository(sessionManager)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            repository.getToken()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "[onResume] ")
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        Log.d(TAG, "[onNewIntent] ")
+        // check intent here
+        if (intent != null) {
+            val stationUid = intent.getStringExtra("StationUid")
+            Log.d(TAG, "[onNewIntent] GET intent stationUid = $stationUid")
+        }
+
+        setIntent(intent)
     }
 
     private fun checkPermissions() {
@@ -104,4 +139,15 @@ class MapsActivity : AppCompatActivity() {
                 }
             }
         }
+
+    public fun switchFragment(bundle: Bundle){
+        val stationListFragment = StationListFragment()
+
+        if (bundle != null)
+            stationListFragment.arguments = bundle
+
+        supportFragmentManager.beginTransaction().replace(R.id.frame_layout,stationListFragment)
+            .addToBackStack("1").commit()
+    }
+
 }

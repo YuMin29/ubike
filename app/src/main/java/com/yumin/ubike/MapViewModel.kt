@@ -39,6 +39,10 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
     }
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.getToken()
+        }
+
         // TODO 20230208 要做一分鐘自動更新一次的功能
         // 要把最新一次座標&距離儲存起來，來當作最近一次更新的數據
         // 利用 CountdownTimer

@@ -25,20 +25,17 @@ class MapsActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
 
-    companion object {
-        lateinit var sessionManager: SessionManager
-        lateinit var repository: RemoteRepository
-    }
-
-    override fun onStart() {
-        super.onStart()
-        // request location runtime permissions
-        checkPermissions()
-    }
+//    companion object {
+//        lateinit var sessionManager: SessionManager
+//        lateinit var repository: RemoteRepository
+//    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "[onCreate] ")
+
+        // request location runtime permissions
+        checkPermissions()
 
         // Initialize view
         binding = ActivityMapsBinding.inflate(layoutInflater)
@@ -50,17 +47,12 @@ class MapsActivity : AppCompatActivity() {
         // Open fragment
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
 
-        sessionManager = SessionManager(this)
-        repository = RemoteRepository(sessionManager)
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            repository.getToken()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Log.d(TAG, "[onResume] ")
+//        sessionManager = SessionManager(this)
+//        repository = RemoteRepository(sessionManager)
+//
+//        lifecycleScope.launch(Dispatchers.IO) {
+//            repository.getToken()
+//        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -71,7 +63,6 @@ class MapsActivity : AppCompatActivity() {
             val stationUid = intent.getStringExtra("StationUid")
             Log.d(TAG, "[onNewIntent] GET intent stationUid = $stationUid")
         }
-
         setIntent(intent)
     }
 
@@ -140,7 +131,7 @@ class MapsActivity : AppCompatActivity() {
             }
         }
 
-    public fun switchFragment(bundle: Bundle){
+    fun replaceFragment(bundle: Bundle){
         val stationListFragment = StationListFragment()
 
         if (bundle != null)

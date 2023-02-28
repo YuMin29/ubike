@@ -9,8 +9,6 @@ class MyViewModelFactory(private val remoteRepository: RemoteRepository) :
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MapViewModel::class.java))
             return MapViewModel(remoteRepository) as T
-        else if (modelClass.isAssignableFrom(StationListViewModel::class.java))
-            return StationListViewModel(remoteRepository) as T
 
         throw IllegalArgumentException("Unknown ViewModel class")
     }

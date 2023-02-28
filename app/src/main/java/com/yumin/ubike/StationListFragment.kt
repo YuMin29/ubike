@@ -21,7 +21,11 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
     private val TAG: String = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var recyclerViewAdapter: RecyclerViewAdapter
-    private val viewModel: MapViewModel by activityViewModels{ MyViewModelFactory(MapsActivity.repository) }
+    private val viewModel: MapViewModel by activityViewModels{
+        val activity = requireNotNull(this.activity)
+        val repository = RemoteRepository(SessionManager(activity))
+        MyViewModelFactory(repository)
+    }
     private lateinit var remoteRepository: RemoteRepository
     private lateinit var currentLatLng: LatLng
     private var initialDistance: Int = 2000
@@ -33,7 +37,7 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
     ): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
 
-        remoteRepository = MapsActivity.repository
+//        remoteRepository = MapsActivity.repository
 
         val bundle = arguments
         if (bundle != null) {

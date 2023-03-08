@@ -355,7 +355,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
         clusterManager.setOnClusterItemClickListener {
             Toast.makeText(context, "[setOnClusterItemClickListener]", Toast.LENGTH_SHORT).show()
-            showBottomSheetDialog(it.getStationInfoItem(),it.getAvailableInfoItem())
+            showBottomSheetDialog(it.stationInfoItem,it.availabilityInfoItem)
             true
         }
 
@@ -396,7 +396,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             if (clusterItemMap.containsKey(stationInfoItem.stationUID)) {
                 // need to update icon
                 val updateItem = clusterItemMap[stationInfoItem.stationUID]
-                val availabilityInfoItem = updateItem?.let { findAvailableInfoItem(it.getStationUid()) }
+                val availabilityInfoItem = updateItem?.let { findAvailableInfoItem(it.stationUid) }
                 val iconId = availabilityInfoItem?.let {
                     getRateIcon(
                         it.AvailableRentBikes,
@@ -415,10 +415,11 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
                     val iconId = getRateIcon(availabilityInfoItem.AvailableRentBikes, availabilityInfoItem.AvailableReturnBikes)
 
                     val myItem = StationClusterItem(
-                        stationInfoItem.stationPosition.positionLat,
-                        stationInfoItem.stationPosition.positionLon,
+                        LatLng(stationInfoItem.stationPosition.positionLat,
+                               stationInfoItem.stationPosition.positionLon),
                         "Title ${stationInfoItem.stationName}",
                         "Snippet ${stationInfoItem.stationUID}",
+                        null,
                         iconId,
                         stationInfoItem,
                         stationInfoItem.stationUID,
@@ -446,8 +447,8 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
     }
 
     override fun clusterItemRendered(clusterItem: StationClusterItem, marker: Marker) {
-        if (!markerMap.containsKey(clusterItem.getStationUid()))
-            markerMap.put(clusterItem.getStationUid(),marker)
+        if (!markerMap.containsKey(clusterItem.stationUid))
+            markerMap.put(clusterItem.stationUid,marker)
 
 
         if (isMoveToSelectedStation && markerMap.containsKey(selectStationUid)) {
@@ -460,7 +461,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
                 }
 
                 override fun onFinish() {
-                    showBottomSheetDialog(clusterItem.getStationInfoItem(),clusterItem.getAvailableInfoItem())
+                    showBottomSheetDialog(clusterItem.stationInfoItem,clusterItem.availabilityInfoItem)
                 }
             })
         }

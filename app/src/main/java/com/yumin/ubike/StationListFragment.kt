@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.google.android.gms.maps.model.LatLng
@@ -17,10 +18,10 @@ import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
 import kotlin.Comparator
 
-class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
+class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
     private val TAG: String = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
-    private lateinit var recyclerViewAdapter: RecyclerViewAdapter
+    private lateinit var stationListAdapter: StationListAdapter
     private val viewModel: MapViewModel by activityViewModels{
         val activity = requireNotNull(this.activity)
         val repository = RemoteRepository(SessionManager(activity))
@@ -37,7 +38,10 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
     ): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
 
-//        remoteRepository = MapsActivity.repository
+        activity?.let {
+            WindowCompat.setDecorFitsSystemWindows(it.window, true)
+            it.window.statusBarColor = it.getColor(R.color.pink)
+        }
 
         val bundle = arguments
         if (bundle != null) {
@@ -57,6 +61,14 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
         initView()
         observeViewModel()
         getCurrentStationInfo()
+
+        fragmentStationListBinding.imageButton.setOnClickListener{
+            // popup
+            activity?.let {
+                it.supportFragmentManager.popBackStack()
+            }
+        }
+
         return fragmentStationListBinding.root
     }
 
@@ -70,11 +82,11 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
     }
 
     private fun initView() {
-        recyclerViewAdapter = RecyclerViewAdapter(
+        stationListAdapter = StationListAdapter(
             this,
             Pair(StationInfo(), AvailabilityInfo())
         )
-        fragmentStationListBinding.stationListView.adapter = recyclerViewAdapter
+        fragmentStationListBinding.stationListView.adapter = stationListAdapter
     }
 
     /**
@@ -91,7 +103,7 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
             if (it1.first?.size == it1.second?.size) {
                 // sort list
                 sortListByDistance(it1.first as ArrayList<StationInfoItem>)
-                recyclerViewAdapter.addItems(it1 as Pair<StationInfo, AvailabilityInfo>)
+                stationListAdapter.addItems(it1 as Pair<StationInfo, AvailabilityInfo>)
             }
         })
     }
@@ -115,8 +127,8 @@ class StationListFragment : Fragment(),RecyclerViewAdapter.OnItemClickListener{
                 distance2 = myCurrentLocation.distanceTo(location2)
             }
 
-            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")
-            Log.d(TAG, "o1 : ${item1?.stationName}, o2 : ${item2?.stationName}")
+//            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")
+//            Log.d(TAG, "o1 : ${item1?.stationName}, o2 : ${item2?.stationName}")
             distance1.compareTo(distance2)
         }
         Collections.sort(stationList, comparator)

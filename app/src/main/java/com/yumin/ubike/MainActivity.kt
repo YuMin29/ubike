@@ -10,6 +10,9 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.yumin.ubike.databinding.ActivityMapsBinding
 import com.yumin.ubike.repository.RemoteRepository
@@ -20,15 +23,10 @@ import kotlinx.coroutines.launch
 /**
  * MapsActivity responsible to check runtime permission
  */
-class MapsActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
     private val TAG: String = "[MapsActivity]"
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
-
-//    companion object {
-//        lateinit var sessionManager: SessionManager
-//        lateinit var repository: RemoteRepository
-//    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,13 +44,6 @@ class MapsActivity : AppCompatActivity() {
         val mapFragment = MapFragment()
         // Open fragment
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
-
-//        sessionManager = SessionManager(this)
-//        repository = RemoteRepository(sessionManager)
-//
-//        lifecycleScope.launch(Dispatchers.IO) {
-//            repository.getToken()
-//        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -131,13 +122,18 @@ class MapsActivity : AppCompatActivity() {
             }
         }
 
-    fun replaceFragment(bundle: Bundle){
+    fun replaceStationListFragment(bundle: Bundle){
         val stationListFragment = StationListFragment()
 
         if (bundle != null)
             stationListFragment.arguments = bundle
 
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout,stationListFragment)
+            .addToBackStack("1").commit()
+    }
+
+    fun replaceSearchFragment(){
+        supportFragmentManager.beginTransaction().replace(R.id.frame_layout,SearchFragment())
             .addToBackStack("1").commit()
     }
 

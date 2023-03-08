@@ -17,6 +17,7 @@ import android.view.animation.AnimationUtils
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
@@ -77,6 +78,11 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
         fragmentMapBinding = FragmentMapBinding.inflate(inflater)
 
+        activity?.let {
+            WindowCompat.setDecorFitsSystemWindows(it.window, false)
+            it.window.statusBarColor = it.getColor(R.color.transparent)
+        }
+
         locationManager = activity?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         //Get current location by network
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
@@ -85,7 +91,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
         setupMap()
 
-        setupButton()
+        setupUI()
 
         context?.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -120,7 +126,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         )
     }
 
-    private fun setupButton() {
+    private fun setupUI() {
         fragmentMapBinding.ubikeAll.setOnClickListener {
             ubikeType = 0
             clearMap()
@@ -139,7 +145,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             getCurrentStationInfo()
         }
 
-        fragmentMapBinding.favoriteStationInfo.setOnClickListener { TODO("Switch to favorite fragment") }
+        fragmentMapBinding.favoriteStationInfo.setOnClickListener {}
 
         fragmentMapBinding.stationInfoListView.setOnClickListener {
             val bundle = Bundle()
@@ -147,7 +153,11 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             bundle.putDouble("latitude", currentLatLng.latitude)
             bundle.putInt("distance", zoomDistance.toInt())
             bundle.putParcelable("location", myGoogleMap.myLocation)
-            (activity as MapsActivity).replaceFragment(bundle)
+            (activity as MainActivity).replaceStationListFragment(bundle)
+        }
+
+        fragmentMapBinding.searchView.setOnClickListener{
+            (activity as MainActivity).replaceSearchFragment()
         }
     }
 

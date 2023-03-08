@@ -12,7 +12,7 @@ import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.CardViewItemLayoutBinding
 
-class RecyclerViewAdapter(
+class StationListAdapter(
     private val clickListener: OnItemClickListener,
     private var list: Pair<StationInfo, AvailabilityInfo>
 ) : RecyclerView.Adapter<BaseViewHolder>() {

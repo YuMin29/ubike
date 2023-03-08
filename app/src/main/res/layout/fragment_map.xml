@@ -15,43 +15,50 @@
         tools:layout_editor_absoluteX="-33dp"
         tools:layout_editor_absoluteY="-301dp" />
 
-    <SearchView
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/searchView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginTop="36dp"
+        android:text="搜尋站點"
+        android:textColor="@color/black"
+        app:iconTint="@color/black"
+        app:iconPadding="20dp"
+        app:icon="@drawable/ic_baseline_search_24"
+        app:backgroundTint="@color/white"
+        app:cornerRadius="25dp"
         app:layout_constraintEnd_toStartOf="@+id/favorite_station_info"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_editor_absoluteX="10dp"
-        app:layout_editor_absoluteY="10dp"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="10dp"
-        android:background="@drawable/search_view_bg_round"
-        android:iconifiedByDefault="false"
-        android:queryBackground="@null"
-        android:queryHint="Search" />
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"/>
 
     <ImageButton
         android:id="@+id/favorite_station_info"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/searchView"
-        app:layout_constraintTop_toTopOf="parent"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:layout_margin="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginTop="36dp"
         android:background="@drawable/favorite_bg_round"
-        android:src="@drawable/ic_baseline_favorite_24" />
+        android:src="@drawable/ic_baseline_favorite_24"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/searchView"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.button.MaterialButton
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:id="@+id/ubike_all"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="10dp"
+        android:layout_marginStart="8dp"
         android:text="@string/ubike_all"
         app:backgroundTint="@color/white"
         app:cornerRadius="25dp"
-        app:strokeWidth="1dp"
         app:strokeColor="@color/purple_200"
+        app:strokeWidth="1dp"
         map:layout_constraintStart_toStartOf="parent"
         map:layout_constraintTop_toBottomOf="@+id/searchView" />
 

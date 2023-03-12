@@ -35,9 +35,9 @@ class SearchFragment: Fragment(),StationListAdapter.OnItemClickListener{
     private lateinit var stationListAdapter: StationListAdapter
 
     //搜尋站點名稱 並顯示在recycler list中....
-    // 先把全台的站點都拿到
+    // 先把全台的站點都拿到 => ok
     // 一分鐘更新一次站點可借還資訊
-    // 點選站點 跳轉回去地圖模式? 怎麼告訴地圖模式站點資訊在哪裡?
+    // 點選站點 跳轉回去地圖模式? 怎麼告訴地圖模式站點資訊在哪裡? => ok
     // 1. 只新增該站點資訊到目前地圖觀察的對象中
     // 2. 再依照目前位置去更新觀察的對象?
 
@@ -134,7 +134,7 @@ class SearchFragment: Fragment(),StationListAdapter.OnItemClickListener{
                 val location1 = Location("")
                 location1.latitude = item1.stationPosition.positionLat
                 location1.longitude = item1.stationPosition.positionLon
-                distance1 = StationListFragment.myCurrentLocation.distanceTo(location1)
+                distance1 = StationListFragment.currentLocation.distanceTo(location1)
             }
 
             var distance2 = 0f
@@ -142,7 +142,7 @@ class SearchFragment: Fragment(),StationListAdapter.OnItemClickListener{
                 val location2 = Location("")
                 location2.latitude = item2.stationPosition.positionLat
                 location2.longitude = item2.stationPosition.positionLon
-                distance2 = StationListFragment.myCurrentLocation.distanceTo(location2)
+                distance2 = StationListFragment.currentLocation.distanceTo(location2)
             }
 
 //            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")

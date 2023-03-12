@@ -45,8 +45,10 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
         val bundle = arguments
         if (bundle != null) {
             currentLatLng = LatLng(bundle.getDouble("latitude"), bundle.getDouble("longitude"))
-//            initialDistance = bundle.getInt("distance")
-            myCurrentLocation = bundle.get("location") as Location
+            currentLocation = Location("")
+            currentLocation.latitude = currentLatLng.latitude
+            currentLocation.longitude = currentLatLng.longitude
+
             Log.d(
                 TAG,
                 "[extras] longitude = ${bundle.getDouble("longitude")} ,latitude = ${
@@ -118,7 +120,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
                 val location1 = Location("")
                 location1.latitude = item1.stationPosition.positionLat
                 location1.longitude = item1.stationPosition.positionLon
-                distance1 = myCurrentLocation.distanceTo(location1)
+                distance1 = currentLocation.distanceTo(location1)
             }
 
             var distance2 = 0f
@@ -126,7 +128,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
                 val location2 = Location("")
                 location2.latitude = item2.stationPosition.positionLat
                 location2.longitude = item2.stationPosition.positionLon
-                distance2 = myCurrentLocation.distanceTo(location2)
+                distance2 = currentLocation.distanceTo(location2)
             }
 
 //            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")
@@ -150,9 +152,9 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
     }
 
     companion object{
-        lateinit var myCurrentLocation:Location
+        lateinit var currentLocation:Location
         public fun getLocation(): Location {
-            return myCurrentLocation
+            return currentLocation
         }
     }
 }

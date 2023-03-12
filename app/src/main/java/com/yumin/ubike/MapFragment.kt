@@ -69,6 +69,9 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
     private lateinit var stationClusterRenderer: StationClusterRenderer
     private var markerMap : HashMap<String,Marker> = HashMap()
 
+    private var isMoveToSearchStation = false
+    private var searchStationUid = ""
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -194,6 +197,18 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
     }
 
     private fun observeViewModelData() {
+        mapViewModel.searchStationUid.observe(viewLifecycleOwner, Observer {
+            Log.d(TAG,"[observeViewModelData] searchStationUid = ${it.first.stationUID}")
+
+            // clear cluster items
+            clearMap()
+            // create new cluster
+            addClusterItem(it.first,it.second)
+
+            searchStationUid = it.first.stationUID
+            isMoveToSearchStation = true
+        })
+
         mapViewModel.selectStationUid.observe(viewLifecycleOwner, Observer {
             Log.d(TAG, "[observeViewModelData] selectStationUid = $it")
             selectStationUid = it
@@ -249,7 +264,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
     private fun showBottomSheetDialog(stationInfoItem: StationInfoItem,availabilityInfoItem: AvailabilityInfoItem) {
         val dialog = BottomSheetDialog(requireContext(), R.style.Theme_NoWiredStrapInNavigationBar)
-        val view = layoutInflater.inflate(R.layout.bottom_sheet_dialog_layout, null)
+        val view = layoutInflater.inflate(R.layout.layout_bottom_sheet_dialog, null)
         val stationNameSplitList = stationInfoItem.stationName.zhTw.split("_")
         val stationId = stationInfoItem.stationUID
 
@@ -389,6 +404,24 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         }
     }
 
+    private fun addClusterItem(stationInfoItem: StationInfoItem, availabilityInfoItem: AvailabilityInfoItem) {
+        val iconId = getRateIcon(availabilityInfoItem.AvailableRentBikes, availabilityInfoItem.AvailableReturnBikes)
+
+        val myItem = StationClusterItem(
+            LatLng(stationInfoItem.stationPosition.positionLat,
+                stationInfoItem.stationPosition.positionLon),
+            "Title ${stationInfoItem.stationName}",
+            "Snippet ${stationInfoItem.stationUID}",
+            null,
+            iconId,
+            stationInfoItem,
+            stationInfoItem.stationUID,
+            availabilityInfoItem
+        )
+        clusterManager.addItem(myItem)
+        clusterItemMap.put(stationInfoItem.stationUID, myItem)
+    }
+
     private fun addClusterItems(stationInfo: StationInfo) {
         var addTimes = 0
         var updateTimes = 0
@@ -464,6 +497,22 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
                     showBottomSheetDialog(clusterItem.stationInfoItem,clusterItem.availabilityInfoItem)
                 }
             })
+        }
+
+        if (isMoveToSearchStation && markerMap.containsKey(searchStationUid)) {
+            isMoveToSearchStation = false
+
+            // move to select station
+            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f),
+                object : GoogleMap.CancelableCallback{
+                    override fun onCancel() {
+
+                    }
+
+                    override fun onFinish() {
+                        showBottomSheetDialog(clusterItem.stationInfoItem,clusterItem.availabilityInfoItem)
+                    }
+                })
         }
     }
 

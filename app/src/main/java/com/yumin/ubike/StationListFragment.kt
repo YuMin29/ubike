@@ -10,8 +10,7 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.google.android.gms.maps.model.LatLng
-import com.yumin.ubike.data.AvailabilityInfo
-import com.yumin.ubike.data.StationInfo
+import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentStationListBinding
 import com.yumin.ubike.repository.RemoteRepository
@@ -84,7 +83,8 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
     private fun initView() {
         stationListAdapter = StationListAdapter(
             this,
-            Pair(StationInfo(), AvailabilityInfo())
+//            Pair(StationInfo(), AvailabilityInfo())
+        mutableListOf(), mutableListOf()
         )
         fragmentStationListBinding.stationListView.adapter = stationListAdapter
     }
@@ -103,7 +103,9 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
             if (it1.first?.size == it1.second?.size) {
                 // sort list
                 sortListByDistance(it1.first as ArrayList<StationInfoItem>)
-                stationListAdapter.addItems(it1 as Pair<StationInfo, AvailabilityInfo>)
+//                stationListAdapter.addItems(it1 as Pair<StationInfo, AvailabilityInfo>)
+                stationListAdapter.updateStationList(it1.first!!.toMutableList())
+                stationListAdapter.updateAvailabilityList(it1.second!!.toMutableList())
             }
         })
     }
@@ -135,7 +137,11 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
         return stationList
     }
 
-    override fun onItemClick(view: View, item: StationInfoItem?) {
+    override fun onItemClick(
+        view: View,
+        item: StationInfoItem,
+        availabilityInfoItem: AvailabilityInfoItem
+    ) {
         if (item != null) {
             Log.d(TAG,"[onItemClick] ITEM = "+item.stationName)
             parentFragmentManager.popBackStack()
@@ -144,7 +150,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
     }
 
     companion object{
-        private lateinit var myCurrentLocation:Location
+        lateinit var myCurrentLocation:Location
         public fun getLocation(): Location {
             return myCurrentLocation
         }

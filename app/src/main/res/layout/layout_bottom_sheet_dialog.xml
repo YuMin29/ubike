@@ -128,7 +128,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:drawableTop="@drawable/ic_baseline_directions_24"
-            android:text="導航"
+            android:text="@string/navigation"
             android:textColor="@color/primary_800"
             app:backgroundTint="@color/white" />
 
@@ -140,7 +140,7 @@
             android:layout_weight="1"
             android:backgroundTint="@color/white"
             android:drawableTop="@drawable/ic_baseline_favorite_24"
-            android:text="收藏"
+            android:text="@string/favorite"
             android:textColor="@color/primary_800" />
 
         <Button
@@ -151,7 +151,7 @@
             android:layout_weight="1"
             android:backgroundTint="@color/white"
             android:drawableTop="@drawable/ic_baseline_share_24"
-            android:text="分享"
+            android:text="@string/share"
             android:textColor="@color/primary_800" />
     </LinearLayout>
 

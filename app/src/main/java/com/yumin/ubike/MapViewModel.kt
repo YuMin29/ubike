@@ -7,7 +7,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yumin.ubike.data.AvailabilityInfo
+import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
+import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.repository.RemoteRepository
 import kotlinx.coroutines.*
 
@@ -16,6 +18,7 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
         "KinmenCounty","Taoyuan","Taipei","Kaohsiung","Tainan","Chiayi","HsinchuCounty")
 
     var selectStationUid = MutableLiveData<String>()
+    var searchStationUid = MutableLiveData<Pair<StationInfoItem,AvailabilityInfoItem>>()
 
     var stationInfoByCity = MutableLiveData<StationInfo>()
     var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
@@ -160,5 +163,9 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
 
     fun setSelectStationUid(uid:String){
         selectStationUid.postValue(uid)
+    }
+
+    fun setSelectSearchStationUid(stationInfoItem: StationInfoItem,availabilityInfoItem: AvailabilityInfoItem){
+        searchStationUid.postValue(Pair(stationInfoItem,availabilityInfoItem))
     }
 }

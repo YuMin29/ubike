@@ -1,25 +1,27 @@
 package com.yumin.ubike
 
-import android.content.Context
 import android.location.Location
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.maps.model.LatLng
-import com.yumin.ubike.data.AvailabilityInfo
-import com.yumin.ubike.data.StationInfo
+import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
-import com.yumin.ubike.databinding.CardViewItemLayoutBinding
+import com.yumin.ubike.databinding.LayoutStationItemBinding
 
 class StationListAdapter(
     private val clickListener: OnItemClickListener,
-    private var list: Pair<StationInfo, AvailabilityInfo>
+//    private var list: Pair<StationInfo, AvailabilityInfo>
+    private var stationList: MutableList<StationInfoItem>,
+    private var availabilityList: MutableList<AvailabilityInfoItem>
 ) : RecyclerView.Adapter<BaseViewHolder>() {
+    private val TAG = "[StationListAdapter]"
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BaseViewHolder {
         val itemLayoutBinding =
-            CardViewItemLayoutBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            LayoutStationItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ItemViewHolder(itemLayoutBinding, clickListener)
     }
 
@@ -28,24 +30,38 @@ class StationListAdapter(
     }
 
     override fun getItemCount(): Int {
-        return list.first.size
+//        return list.first.size
+        return stationList.size
     }
 
-    public fun addItems(data: Pair<StationInfo, AvailabilityInfo>) {
-        list = data
+    fun updateStationList(value: MutableList<StationInfoItem>){
+        Log.d(TAG,"[updateStationList] value size = "+value.size)
+        stationList = value
         notifyDataSetChanged()
     }
 
+    fun updateAvailabilityList(value: MutableList<AvailabilityInfoItem>){
+        Log.d(TAG,"[updateAvailabilityList] value size = "+value.size)
+        availabilityList = value
+        notifyDataSetChanged()
+    }
+
+//    public fun addItems(data: Pair<StationInfo, AvailabilityInfo>) {
+//        list = data
+//        notifyDataSetChanged()
+//    }
+
     inner class ItemViewHolder(
-        private val binding: CardViewItemLayoutBinding,
+        private val binding: LayoutStationItemBinding,
         private val listener: OnItemClickListener
     ) : BaseViewHolder(binding.root), View.OnClickListener {
         override fun onBind(position: Int) {
-            val stationInfoItem = list.first[position]
+//            val stationInfoItem = list.first[position]
+            val stationInfoItem = stationList[position]
 //            val availabilityInfoItem = list.second[position]
             val stationNameSplit = stationInfoItem.stationName.zhTw.split("_")
             binding.stationName.text = stationNameSplit[1]
-            binding.stationAddress.text = list.first[position].stationAddress.zhTw
+            binding.stationAddress.text = stationInfoItem.stationAddress.zhTw
             binding.type.text = stationNameSplit[0]
             binding.stationDistance.text = getStationDistance(
                 LatLng(
@@ -59,7 +75,7 @@ class StationListAdapter(
         }
 
         override fun onClick(v: View) {
-            listener.onItemClick(v, list.first[position])
+            listener.onItemClick(v, stationList[position],availabilityList[adapterPosition])
         }
     }
 
@@ -76,7 +92,13 @@ class StationListAdapter(
     }
 
     fun getAvailableInfo(uId: String): String {
-        list.second.forEach { availabilityInfoItem ->
+//        list.second.forEach { availabilityInfoItem ->
+//            if (availabilityInfoItem.StationUID == uId) {
+//                return availabilityInfoItem.AvailableRentBikes.toString() + "可借 | " +
+//                        availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
+//            }
+//        }
+        availabilityList.forEach { availabilityInfoItem ->
             if (availabilityInfoItem.StationUID == uId) {
                 return availabilityInfoItem.AvailableRentBikes.toString() + "可借 | " +
                         availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
@@ -86,6 +108,10 @@ class StationListAdapter(
     }
 
     interface OnItemClickListener {
-        fun onItemClick(view: View, item: StationInfoItem?)
+        fun onItemClick(
+            view: View,
+            item: StationInfoItem,
+            availabilityInfoItem: AvailabilityInfoItem
+        )
     }
 }

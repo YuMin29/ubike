@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -34,6 +35,7 @@ import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentMapBinding
+import com.yumin.ubike.databinding.LayoutBottomSheetDialogBinding
 import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
 import kotlin.collections.HashMap
@@ -264,11 +266,10 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
     private fun showBottomSheetDialog(stationInfoItem: StationInfoItem,availabilityInfoItem: AvailabilityInfoItem) {
         val dialog = BottomSheetDialog(requireContext(), R.style.Theme_NoWiredStrapInNavigationBar)
-        val view = layoutInflater.inflate(R.layout.layout_bottom_sheet_dialog, null)
+        val bindView = LayoutBottomSheetDialogBinding.inflate(layoutInflater)
         val stationNameSplitList = stationInfoItem.stationName.zhTw.split("_")
-        val stationId = stationInfoItem.stationUID
 
-        // 顯示最後更新時間
+        // show update time
         var currentTimeDate = Calendar.getInstance().time
         var diff = currentTimeDate.time - latestRefreshTime.time
         val diffSeconds = (diff / 1000).toInt()
@@ -278,36 +279,51 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         )
         Log.d(TAG, "[showBottomSheetDialog] currentTimeDate = ${currentTimeDate.toString()}")
 
-        val updateTime = view.findViewById<TextView>(R.id.updateTime)
-        updateTime.text = diffSeconds.toString() + "秒前更新"
+        bindView.updateTime.text = diffSeconds.toString() + "秒前更新"
 
-        // 顯示站點距離
+        // show station distance
         val stationLatLng = LatLng(
             stationInfoItem.stationPosition.positionLat,
             stationInfoItem.stationPosition.positionLon
         )
         val distance = getStationDistance(stationLatLng)
-        val showDistance = view.findViewById<TextView>(R.id.distance)
-        showDistance.text = "距離" + distance
+        bindView.distance.text = "距離" + distance
         Log.d(TAG, "[showBottomSheetDialog] show distance = " + getStationDistance(stationLatLng))
+        bindView.stationName.text = stationNameSplitList[1]
+        bindView.stationAddress.text = stationInfoItem.stationAddress.zhTw
+        bindView.type.text = stationNameSplitList[0]
+        bindView.availableRent.text = availabilityInfoItem.AvailableRentBikes.toString() + "可借"
+        bindView.availableReturn.text = availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
+        bindView.share.setOnClickListener{
+            val sendIntent: Intent = Intent().apply {
+                val mapUri =
+                    "https://www.google.com/maps/dir/?api=1&destination=" + stationInfoItem.stationPosition.positionLat + "," + stationInfoItem.stationPosition.positionLon
+                action = Intent.ACTION_SEND
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    stationNameSplitList[1] + "有" + availabilityInfoItem.AvailableRentBikes.toString() + "可借"+
+                            availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
+                            + "，地點在$mapUri"
+                )
+                type = "text/plain"
+            }
+            sendIntent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+            val shareIntent = Intent.createChooser(sendIntent, null)
+            startActivity(shareIntent)
+        }
+        bindView.navigate.setOnClickListener{
+            val gmmIntentUri =
+                Uri.parse("google.navigation:q=" + stationInfoItem.stationPosition.positionLat + "," + stationInfoItem.stationPosition.positionLon + "&mode=w")
+            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+            mapIntent.setPackage("com.google.android.apps.maps")
+            startActivity(mapIntent)
+        }
+        bindView.favorite.setOnClickListener {
 
-        val stationName = view.findViewById<TextView>(R.id.station_name)
-        stationName.text = stationNameSplitList[1]
-
-        val stationAddress = view.findViewById<TextView>(R.id.station_address)
-        stationAddress.text = stationInfoItem.stationAddress.zhTw
-
-        val type = view.findViewById<TextView>(R.id.type)
-        type.text = stationNameSplitList[0]
-
-        val availableRent = view.findViewById<TextView>(R.id.available_rent)
-        availableRent.text = availabilityInfoItem.AvailableRentBikes.toString() + "可借"
-
-        val availableReturn = view.findViewById<TextView>(R.id.available_return)
-        availableReturn.text = availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
+        }
 
         dialog.setCancelable(true)
-        dialog.setContentView(view)
+        dialog.setContentView(bindView.root)
         dialog.show()
     }
 
@@ -318,9 +334,9 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         val distance = stationLocation.distanceTo(myGoogleMap.myLocation)
 
         return if (distance > 1000) {
-            "%.2f".format(distance / 1000).toString() + "公里"
+            "%.2f".format(distance / 1000).toString() + getString(R.string.km)
         } else
-            distance.toInt().toString() + "公尺"
+            distance.toInt().toString() + getString(R.string.meter)
     }
 
     private fun getRateIcon(availableRent: Int, availableReturn: Int): Int {
@@ -359,27 +375,10 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         clusterManager.renderer = stationClusterRenderer
         myGoogleMap.setOnMarkerClickListener(clusterManager)
         myGoogleMap.setOnInfoWindowClickListener(clusterManager)
-        clusterManager.setOnClusterClickListener {
-            Toast.makeText(context, "[setOnClusterClickListener]", Toast.LENGTH_SHORT).show()
-            true
-        }
-        clusterManager.setOnClusterInfoWindowClickListener {
-            Toast.makeText(context, "[setOnClusterInfoWindowClickListener]", Toast.LENGTH_SHORT)
-                .show()
-        }
 
         clusterManager.setOnClusterItemClickListener {
-            Toast.makeText(context, "[setOnClusterItemClickListener]", Toast.LENGTH_SHORT).show()
             showBottomSheetDialog(it.stationInfoItem,it.availabilityInfoItem)
             true
-        }
-
-        clusterManager.setOnClusterItemInfoWindowLongClickListener {
-            Toast.makeText(
-                context,
-                "[setOnClusterItemInfoWindowLongClickListener]",
-                Toast.LENGTH_SHORT
-            ).show()
         }
     }
 

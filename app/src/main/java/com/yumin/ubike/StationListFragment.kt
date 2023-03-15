@@ -1,5 +1,6 @@
 package com.yumin.ubike
 
+import android.content.Intent
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -17,7 +18,7 @@ import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
 import kotlin.Comparator
 
-class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
+class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private val TAG: String = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
@@ -149,6 +150,16 @@ class StationListFragment : Fragment(),StationListAdapter.OnItemClickListener{
             parentFragmentManager.popBackStack()
             viewModel.setSelectStationUid(item.stationUID)
         }
+    }
+
+    override fun onShareClick(intent: Intent) {
+        intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+        val shareIntent = Intent.createChooser(intent, null)
+        startActivity(shareIntent)
+    }
+
+    override fun onNavigationClick(intent: Intent) {
+        startActivity(intent)
     }
 
     companion object{

@@ -1,6 +1,7 @@
 package com.yumin.ubike
 
 import android.content.Context
+import android.content.Intent
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -21,7 +22,7 @@ import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
 import kotlin.Comparator
 
-class SearchFragment: Fragment(),StationListAdapter.OnItemClickListener{
+class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
     private val TAG = "[SearchFragment]"
     lateinit var fragmentSearchBinding: FragmentSearchBinding
     lateinit var stationList:MutableList<StationInfoItem>
@@ -191,5 +192,15 @@ class SearchFragment: Fragment(),StationListAdapter.OnItemClickListener{
             parentFragmentManager.popBackStack()
             mapViewModel.setSelectSearchStationUid(stationInfoItem,availabilityInfoItem)
         }
+    }
+
+    override fun onShareClick(intent: Intent) {
+        intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+        val shareIntent = Intent.createChooser(intent, null)
+        startActivity(shareIntent)
+    }
+
+    override fun onNavigationClick(intent: Intent) {
+        startActivity(intent)
     }
 }

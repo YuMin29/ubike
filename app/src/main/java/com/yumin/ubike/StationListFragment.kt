@@ -30,6 +30,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private lateinit var remoteRepository: RemoteRepository
     private lateinit var currentLatLng: LatLng
     private var initialDistance: Int = 2000
+    private var type: Int = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,6 +50,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
             currentLocation = Location("")
             currentLocation.latitude = currentLatLng.latitude
             currentLocation.longitude = currentLatLng.longitude
+            type = bundle.getInt("type")
 
             Log.d(
                 TAG,
@@ -76,10 +78,10 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
 
     private fun getCurrentStationInfo() {
         viewModel.getStationInfoNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, 0
+            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type
         )
         viewModel.getAvailabilityNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, 0, false
+            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type, false
         )
     }
 

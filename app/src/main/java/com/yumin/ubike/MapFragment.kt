@@ -158,6 +158,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             bundle.putDouble("latitude", currentLatLng.latitude)
             bundle.putInt("distance", zoomDistance.toInt())
             bundle.putParcelable("location", myGoogleMap.myLocation)
+            bundle.putInt("type",ubikeType)
             (activity as MainActivity).replaceStationListFragment(bundle)
         }
 
@@ -177,13 +178,15 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         mapViewModel.getStationInfoNearBy(
             currentLatLng.latitude,
             currentLatLng.longitude,
-            zoomDistance.toInt(),
+//            zoomDistance.toInt(),
+            2000,
             ubikeType
         )
         mapViewModel.getAvailabilityNearBy(
             currentLatLng.latitude,
             currentLatLng.longitude,
-            zoomDistance.toInt(),
+//            zoomDistance.toInt(),
+            2000,
             ubikeType,
             false
         )
@@ -215,6 +218,8 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             Log.d(TAG, "[observeViewModelData] selectStationUid = $it")
             selectStationUid = it
             isMoveToSelectedStation = true
+            if (myGoogleMap.cameraPosition.zoom < 16)
+                myGoogleMap.animateCamera(CameraUpdateFactory.zoomTo(16f))
         })
 
         mapViewModel.stationWholeInfo.observe(viewLifecycleOwner, Observer { stationWholeInfo ->
@@ -249,8 +254,10 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         super.onDestroyView()
         // release here
         Log.d(TAG,"[onDestroyView]")
+        stationClusterRenderer.setDestroyView(true)
+        clusterManager.markerCollection.clear()
         clearMap()
-        myGoogleMap.clear()
+//        myGoogleMap.clear()
     }
 
     override fun onLocationChanged(location: Location) {
@@ -465,10 +472,10 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
         }
 
         availableList.forEach { availabilityInfoItem ->
-            Log.d(
-                TAG,
-                "[addClusterItems] [update] availability item update time : ${availabilityInfoItem.UpdateTime}"
-            )
+//            Log.d(
+//                TAG,
+//                "[addClusterItems] [update] availability item update time : ${availabilityInfoItem.UpdateTime}"
+//            )
         }
 
         Log.d(TAG, "[addClusterItems] [update] availability SIZE : ${availableList.size}")
@@ -485,8 +492,9 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
 
         if (isMoveToSelectedStation && markerMap.containsKey(selectStationUid)) {
             isMoveToSelectedStation = false
+            Log.d(TAG,"Find selected station! ")
             // move to select station
-            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f),
+            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 16f),500,
                 object : GoogleMap.CancelableCallback{
                 override fun onCancel() {
 
@@ -502,7 +510,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             isMoveToSearchStation = false
 
             // move to select station
-            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 17f),
+            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 16f),
                 object : GoogleMap.CancelableCallback{
                     override fun onCancel() {
 
@@ -518,6 +526,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
     override fun onMapReady(googleMap: GoogleMap) {
         Log.d(TAG, "[onMapReady]")
         this.myGoogleMap = googleMap
+        myGoogleMap.clear()
 
         setUpClusterManager()
         observeViewModelData()
@@ -550,13 +559,16 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
             fragmentMapBinding.anchorPoint.startAnimation(animation)
 
             zoomDistance = getZoomDistance()
-            if (zoomDistance > 15000) {
-                Log.d(
-                    TAG,
-                    "[setOnCameraIdleListener] Distance : $zoomDistance > 1500 , return"
-                )
-                return@setOnCameraIdleListener
-            }
+
+            Log.d(TAG,"Current zoom level : "+myGoogleMap.cameraPosition.zoom);
+
+//            if (zoomDistance > 15000) {
+//                Log.d(
+//                    TAG,
+//                    "[setOnCameraIdleListener] Distance : $zoomDistance > 1500 , return"
+//                )
+//                return@setOnCameraIdleListener
+//            }
 
             currentLatLng = this.myGoogleMap.cameraPosition.target
             Log.d(
@@ -564,6 +576,7 @@ class MapFragment : Fragment(), LocationListener, StationClusterRenderer.Callbac
                 "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}"
             )
 
+            clearMap()
             getCurrentStationInfo()
 
             Log.d(

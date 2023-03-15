@@ -1,6 +1,7 @@
 package com.yumin.ubike
 
 import android.content.Context
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.ImageView
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -9,6 +10,7 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.ClusterManager
 import com.google.maps.android.clustering.view.DefaultClusterRenderer
 import com.google.maps.android.ui.IconGenerator
@@ -21,6 +23,7 @@ class StationClusterRenderer(
 ) : DefaultClusterRenderer<StationClusterItem>(context, map, clusterManager) {
     private val iconGenerator = IconGenerator(context)
     private val imageView = ImageView(context)
+    private var destroyView = false
 
     init {
         imageView.layoutParams = ViewGroup.LayoutParams(100, 100)
@@ -36,6 +39,11 @@ class StationClusterRenderer(
     }
 
     override fun onClusterItemUpdated(item: StationClusterItem, marker: Marker) {
+        if (destroyView) {
+            Log.d("[StationClusterRenderer]","[onClusterItemUpdated] destroyView = $destroyView")
+            return
+        }
+
         marker.setIcon(getItemIcon(item))
         marker.title = item.title
     }
@@ -50,6 +58,17 @@ class StationClusterRenderer(
     override fun onClusterItemRendered(clusterItem: StationClusterItem, marker: Marker) {
         super.onClusterItemRendered(clusterItem, marker)
         listener.clusterItemRendered(clusterItem,marker)
+    }
+
+    override fun shouldRenderAsCluster(cluster: Cluster<StationClusterItem>): Boolean {
+        return if (destroyView)
+            cluster.size > 1
+        else
+            super.shouldRenderAsCluster(cluster)
+    }
+
+    public fun setDestroyView(destroy:Boolean){
+        destroyView = destroy
     }
 
     interface Callback{

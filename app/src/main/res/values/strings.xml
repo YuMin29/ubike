@@ -17,4 +17,7 @@
     <string name="navigation">導航</string>
     <string name="favorite">收藏</string>
     <string name="share">分享</string>
+    <string name="share_subject">Ubike站點資訊</string>
+    <string name="km">公里</string>
+    <string name="meter">公尺</string>
 </resources>

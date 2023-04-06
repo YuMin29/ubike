@@ -17,11 +17,11 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
     val allCities = arrayListOf<String>("Taichung","Hsinchu","MiaoliCounty","NewTaipei","PingtungCounty",
         "KinmenCounty","Taoyuan","Taipei","Kaohsiung","Tainan","Chiayi","HsinchuCounty")
 
-    var selectStationUid = MutableLiveData<String>()
-    var searchStationUid = MutableLiveData<Pair<StationInfoItem,AvailabilityInfoItem>>()
+    var selectStationUid = MutableLiveData<Event<String>>()
+    var searchStationUid = MutableLiveData<Event<Pair<StationInfoItem,AvailabilityInfoItem>>>()
 
-    var stationInfoByCity = MutableLiveData<StationInfo>()
-    var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
+//    var stationInfoByCity = MutableLiveData<StationInfo>()
+//    var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
 
     var stationInfo = MutableLiveData<StationInfo>()
 
@@ -42,13 +42,13 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
     var allCityStationInfo = MutableLiveData<List<StationInfo>>()
     var allCityAvailabilityInfo = MutableLiveData<List<AvailabilityInfo>>()
 
-    var allInfo:MediatorLiveData<Pair<List<StationInfo>?,List<AvailabilityInfo>?>> =
-        MediatorLiveData<Pair<List<StationInfo>?,List<AvailabilityInfo>?>>().apply {
+    var allInfo:MediatorLiveData<Event<Pair<List<StationInfo>?,List<AvailabilityInfo>?>>> =
+        MediatorLiveData<Event<Pair<List<StationInfo>?,List<AvailabilityInfo>?>>>().apply {
             addSource(allCityStationInfo){
-                value = Pair(it, allCityAvailabilityInfo.value)
+                value = Event(Pair(it, allCityAvailabilityInfo.value))
             }
             addSource(allCityAvailabilityInfo){
-                value = Pair(allCityStationInfo.value,it)
+                value = Event(Pair(allCityStationInfo.value,it))
             }
     }
 
@@ -85,6 +85,7 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
             val stationInfo = allCities.map { city ->
                 async { repository.getStationInfoByCity(city) }
             }.awaitAll()
+            Log.d(TAG,"[getAllCityStationInfo] [postValue]");
             allCityStationInfo.postValue(stationInfo)
         }
     }
@@ -94,21 +95,22 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
             val availabilityInfo = allCities.map { city ->
                 async { repository.getAvailabilityByCity(city) }
             }.awaitAll()
+            Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
             allCityAvailabilityInfo.postValue(availabilityInfo)
         }
     }
 
-    fun getStationInfo(city: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            stationInfoByCity.postValue(repository.getStationInfoByCity(city))
-        }
-    }
+//    fun getStationInfo(city: String) {
+//        viewModelScope.launch(Dispatchers.IO) {
+//            stationInfoByCity.postValue(repository.getStationInfoByCity(city))
+//        }
+//    }
 
-    fun getAvailabilityByCity(city: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            availabilityInfoByCity.postValue(repository.getAvailabilityByCity(city))
-        }
-    }
+//    fun getAvailabilityByCity(city: String) {
+//        viewModelScope.launch(Dispatchers.IO) {
+//            availabilityInfoByCity.postValue(repository.getAvailabilityByCity(city))
+//        }
+//    }
 
     fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -162,10 +164,10 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
     }
 
     fun setSelectStationUid(uid:String){
-        selectStationUid.postValue(uid)
+        selectStationUid.postValue(Event(uid))
     }
 
     fun setSelectSearchStationUid(stationInfoItem: StationInfoItem,availabilityInfoItem: AvailabilityInfoItem){
-        searchStationUid.postValue(Pair(stationInfoItem,availabilityInfoItem))
+        searchStationUid.postValue(Event(Pair(stationInfoItem,availabilityInfoItem)))
     }
 }

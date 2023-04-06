@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import com.google.android.gms.maps.model.LatLng
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
@@ -30,6 +31,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private lateinit var remoteRepository: RemoteRepository
     private lateinit var currentLatLng: LatLng
     private var initialDistance: Int = 2000
+    private var type: Int = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,6 +51,8 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
             currentLocation = Location("")
             currentLocation.latitude = currentLatLng.latitude
             currentLocation.longitude = currentLatLng.longitude
+            Log.d(TAG, "[onCreateView] currentLatLng = $currentLatLng")
+            type = bundle.getInt("type")
 
             Log.d(
                 TAG,
@@ -59,6 +63,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
             )
         } else {
             // means don't have any lating data
+            Log.d(TAG, "[onCreateView] don't have any lating data")
         }
         initView()
         observeViewModel()
@@ -76,10 +81,10 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
 
     private fun getCurrentStationInfo() {
         viewModel.getStationInfoNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, 0
+            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type
         )
         viewModel.getAvailabilityNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, 0, false
+            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type, false
         )
     }
 

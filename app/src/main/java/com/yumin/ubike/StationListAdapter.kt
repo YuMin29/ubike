@@ -91,7 +91,11 @@ class StationListAdapter(
         }
 
         override fun onClick(v: View) {
-            listener.onItemClick(v, stationList[position],availabilityList[adapterPosition])
+            getAvailableInfoItem(stationList[position].stationUID)?.let {
+                listener.onItemClick(v, stationList[position],
+                    it
+                )
+            }
         }
     }
 
@@ -99,7 +103,7 @@ class StationListAdapter(
         var stationLocation = Location("")
         stationLocation.latitude = stationLatLng.latitude
         stationLocation.longitude = stationLatLng.longitude
-        val distance = stationLocation.distanceTo(StationListFragment.getLocation())
+        val distance = stationLocation.distanceTo(MapFragment.getLocation())
 
         return if (distance > 1000) {
             "%.2f".format(distance / 1000).toString() + "公里"
@@ -115,6 +119,14 @@ class StationListAdapter(
             }
         }
         return ""
+    }
+
+    fun getAvailableInfoItem(uId: String): AvailabilityInfoItem? {
+        availabilityList.forEach { availabilityInfoItem ->
+            if (availabilityInfoItem.StationUID == uId)
+                return availabilityInfoItem
+        }
+        return null
     }
 
     interface OnClickListener {

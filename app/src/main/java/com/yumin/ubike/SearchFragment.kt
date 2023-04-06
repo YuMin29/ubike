@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
@@ -61,9 +62,6 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
                 it.supportFragmentManager.popBackStack()
             }
         }
-
-        mapViewModel.getAllCityStationInfo()
-        mapViewModel.getAllCityAvailabilityInfo()
 
         stationListAdapter = StationListAdapter(this,mutableListOf(), mutableListOf())
 
@@ -135,7 +133,7 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
                 val location1 = Location("")
                 location1.latitude = item1.stationPosition.positionLat
                 location1.longitude = item1.stationPosition.positionLon
-                distance1 = StationListFragment.currentLocation.distanceTo(location1)
+                distance1 = MapFragment.getLocation().distanceTo(location1)
             }
 
             var distance2 = 0f
@@ -143,7 +141,7 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
                 val location2 = Location("")
                 location2.latitude = item2.stationPosition.positionLat
                 location2.longitude = item2.stationPosition.positionLon
-                distance2 = StationListFragment.currentLocation.distanceTo(location2)
+                distance2 = MapFragment.getLocation().distanceTo(location2)
             }
 
 //            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")
@@ -156,27 +154,29 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
 
     private fun observeViewModel(){
         mapViewModel.allInfo.observe(viewLifecycleOwner, Observer {
-            // update search adpater data
+            it.getContentIfNotHandled()?.apply {
+                // update search adpater data
 
-            it.first?.let {
-                Log.d(TAG,"[allCityStationInfo] list.size = "+it)
+                this.first?.let {
+                    Log.d(TAG,"[allCityStationInfo] list.size = "+it)
 
-                stationList = mutableListOf()
+                    stationList = mutableListOf()
 
-                for (items in it) {
-                    Log.d(TAG,"[allCityStationInfo] items.size = "+items.size)
-                    stationList.addAll(items)
+                    for (items in it) {
+                        Log.d(TAG,"[allCityStationInfo] items.size = "+items.size)
+                        stationList.addAll(items)
+                    }
                 }
-            }
 
-            it.second?.let {
-                Log.d(TAG,"[allCityAvailabilityInfo] list.size = "+it)
+                this.second?.let {
+                    Log.d(TAG,"[allCityAvailabilityInfo] list.size = "+it)
 
-                availabilityInfoList = mutableListOf()
+                    availabilityInfoList = mutableListOf()
 
-                for (items in it) {
-                    Log.d(TAG,"[allCityAvailabilityInfo] items.size = "+items.size)
-                    availabilityInfoList.addAll(items)
+                    for (items in it) {
+                        Log.d(TAG,"[allCityAvailabilityInfo] items.size = "+items.size)
+                        availabilityInfoList.addAll(items)
+                    }
                 }
             }
         })
@@ -188,7 +188,9 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
         availabilityInfoItem: AvailabilityInfoItem
     ) {
         if (stationInfoItem != null) {
-            Log.d(TAG,"[onItemClick] ITEM = "+stationInfoItem.stationName)
+            Log.d(TAG,"[onItemClick] stationName = "+stationInfoItem.stationName+" ,uid = "+stationInfoItem.stationUID)
+            Log.d(TAG,"[onItemClick] availabilityInfoItem uid = "+availabilityInfoItem.StationUID);
+            Log.d(TAG,"[onItemClick] availabilityInfoItem rent = "+availabilityInfoItem.AvailableRentBikes+", return = "+availabilityInfoItem.AvailableReturnBikes)
             parentFragmentManager.popBackStack()
             mapViewModel.setSelectSearchStationUid(stationInfoItem,availabilityInfoItem)
         }

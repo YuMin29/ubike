@@ -1,7 +1,9 @@
 package com.yumin.ubike
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -14,85 +16,114 @@ import android.widget.Toast
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentSearchBinding
 import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
-import kotlin.Comparator
 
-class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
-    private val TAG = "[SearchFragment]"
+class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
     lateinit var fragmentSearchBinding: FragmentSearchBinding
-    lateinit var stationList:MutableList<StationInfoItem>
-    lateinit var availabilityInfoList:MutableList<AvailabilityInfoItem>
+    var stationList: MutableList<StationInfoItem> = mutableListOf()
+    var availabilityInfoList: MutableList<AvailabilityInfoItem> = mutableListOf()
+    lateinit var sessionManager: SessionManager
+    lateinit var receiver: BroadcastReceiver
+    var queryStringEvent: Event<String>? = null
 
-    private val mapViewModel: MapViewModel by activityViewModels{
+    private val mapViewModel: MapViewModel by activityViewModels {
         val activity = requireNotNull(this.activity)
         val repository = RemoteRepository(SessionManager(activity))
         MyViewModelFactory(repository)
     }
     private lateinit var stationListAdapter: StationListAdapter
 
-    //搜尋站點名稱 並顯示在recycler list中....
-    // 先把全台的站點都拿到 => ok
-    // 一分鐘更新一次站點可借還資訊
-    // 點選站點 跳轉回去地圖模式? 怎麼告訴地圖模式站點資訊在哪裡? => ok
-    // 1. 只新增該站點資訊到目前地圖觀察的對象中
-    // 2. 再依照目前位置去更新觀察的對象?
+    // 資料來不及拿到就等query時顯示progress bar處理
+    // 再由這頁每分鐘更新一次
+    companion object {
+        private const val TAG = "[SearchFragment]"
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        mapViewModel.getAllCityStationInfo()
+        mapViewModel.getAllCityAvailabilityInfo()
+
         fragmentSearchBinding = FragmentSearchBinding.inflate(inflater)
-        activity?.let { WindowCompat.setDecorFitsSystemWindows(it.window, true) }
 
         activity?.let {
-//            WindowCompat.setDecorFitsSystemWindows(it.window, true)
-//            it.window.statusBarColor = it.getColor(R.color.pink)
+            WindowCompat.setDecorFitsSystemWindows(it.window, true)
+            sessionManager = SessionManager(it)
         }
 
-        fragmentSearchBinding.imageButton.setOnClickListener{
-            // popup
+        observeViewModel()
+
+        receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d(TAG, "[onReceive] intent action : " + intent?.action.toString())
+                mapViewModel.getAllCityStationInfo()
+                mapViewModel.getAllCityAvailabilityInfo()
+            }
+        }
+
+        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
+
+        return fragmentSearchBinding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        fragmentSearchBinding.imageButton.setOnClickListener {
             activity?.let {
                 it.supportFragmentManager.popBackStack()
             }
         }
 
-        stationListAdapter = StationListAdapter(this,mutableListOf(), mutableListOf())
+        stationListAdapter =
+            StationListAdapter(this, mutableListOf(), mutableListOf(), sessionManager)
 
         fragmentSearchBinding.recyclerView.adapter = stationListAdapter
-        fragmentSearchBinding.searchView2.setOnQueryTextListener(object : SearchView.OnQueryTextListener{
+        fragmentSearchBinding.searchView2.setOnQueryTextListener(object :
+            SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
             }
 
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterList(newText)
+            override fun onQueryTextChange(queryString: String?): Boolean {
+                queryString?.let {
+                    if (stationList.isNotEmpty() && availabilityInfoList.isNotEmpty()) {
+                        fragmentSearchBinding.progressBar.visibility = View.VISIBLE
+                        filterList(queryString)
+                        fragmentSearchBinding.progressBar.visibility = View.INVISIBLE
+                    } else {
+                        fragmentSearchBinding.progressBar.visibility = View.VISIBLE
+                        queryStringEvent = Event(queryString)
+                    }
+                }
                 return true
             }
         })
 
-        fragmentSearchBinding.searchView2.setOnQueryTextFocusChangeListener(object : View.OnFocusChangeListener{
-            override fun onFocusChange(v: View?, hasFocus: Boolean) {
-                if (hasFocus) {
-                    val inputMethodManager = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                    inputMethodManager.showSoftInput(v,0)
-                }
+        // show keyboard
+        fragmentSearchBinding.searchView2.setOnQueryTextFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                val inputMethodManager =
+                    context?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                inputMethodManager.showSoftInput(view, 0)
             }
-        })
+        }
         fragmentSearchBinding.searchView2.requestFocus()
-
-        observeViewModel()
-
-        return fragmentSearchBinding.root
     }
 
-    private fun filterList(queryString:String?){
+    override fun onDestroyView() {
+        super.onDestroyView()
+        context?.unregisterReceiver(receiver)
+    }
+
+    private fun filterList(queryString: String?) {
         queryString?.let {
             Log.d(TAG, "[filterList] queryString = $it")
 
@@ -103,11 +134,11 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
 
             val queryStationList = mutableListOf<StationInfoItem>()
             val queryAvailabilityList = mutableListOf<AvailabilityInfoItem>()
-            stationList.forEach { stationItem ->
+            stationList?.forEach { stationItem ->
                 if (stationItem.stationName.zhTw.contains(queryString)) {
                     queryStationList.add(stationItem)
 
-                    availabilityInfoList.forEach{ availabilityItem ->
+                    availabilityInfoList.forEach { availabilityItem ->
                         if (availabilityItem.StationUID == stationItem.stationUID)
                             queryAvailabilityList.add(availabilityItem)
                     }
@@ -116,7 +147,8 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
 
             if (queryStationList.isEmpty()) {
                 fragmentSearchBinding.noSearchResult.visibility = View.VISIBLE
-                Toast.makeText(context,"Do query data! Please try again.",Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Do query data! Please try again.", Toast.LENGTH_SHORT)
+                    .show()
             } else {
                 fragmentSearchBinding.noSearchResult.visibility = View.INVISIBLE
                 sortListByDistance(queryStationList as ArrayList<StationInfoItem>)
@@ -152,31 +184,42 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
         return stationList
     }
 
-    private fun observeViewModel(){
+    private fun observeViewModel() {
         mapViewModel.allInfo.observe(viewLifecycleOwner, Observer {
             it.getContentIfNotHandled()?.apply {
-                // update search adpater data
 
-                this.first?.let {
-                    Log.d(TAG,"[allCityStationInfo] list.size = "+it)
+                var filterString = false
+                queryStringEvent?.getContentIfNotHandled()?.apply {
+                    // 還沒處理query string
+                    filterString = true
+                }
+
+                // update search adpater data
+                it.peekContent().first?.let {
+                    Log.d(TAG, "[allCityStationInfo] list.size = " + it)
 
                     stationList = mutableListOf()
 
                     for (items in it) {
-                        Log.d(TAG,"[allCityStationInfo] items.size = "+items.size)
+                        Log.d(TAG, "[allCityStationInfo] items.size = " + items.size)
                         stationList.addAll(items)
                     }
                 }
 
-                this.second?.let {
-                    Log.d(TAG,"[allCityAvailabilityInfo] list.size = "+it)
+                it.peekContent().second?.let {
+                    Log.d(TAG, "[allCityAvailabilityInfo] list.size = " + it)
 
                     availabilityInfoList = mutableListOf()
 
                     for (items in it) {
-                        Log.d(TAG,"[allCityAvailabilityInfo] items.size = "+items.size)
+                        Log.d(TAG, "[allCityAvailabilityInfo] items.size = " + items.size)
                         availabilityInfoList.addAll(items)
                     }
+                }
+
+                if (filterString) {
+                    filterList(queryStringEvent?.peekContent())
+                    fragmentSearchBinding.progressBar.visibility = View.INVISIBLE
                 }
             }
         })
@@ -188,21 +231,34 @@ class SearchFragment: Fragment(),StationListAdapter.OnClickListener{
         availabilityInfoItem: AvailabilityInfoItem
     ) {
         if (stationInfoItem != null) {
-            Log.d(TAG,"[onItemClick] stationName = "+stationInfoItem.stationName+" ,uid = "+stationInfoItem.stationUID)
-            Log.d(TAG,"[onItemClick] availabilityInfoItem uid = "+availabilityInfoItem.StationUID);
-            Log.d(TAG,"[onItemClick] availabilityInfoItem rent = "+availabilityInfoItem.AvailableRentBikes+", return = "+availabilityInfoItem.AvailableReturnBikes)
+            Log.d(
+                TAG,
+                "[onItemClick] stationName = " + stationInfoItem.stationName + " ,uid = " + stationInfoItem.stationUID
+            )
+            Log.d(
+                TAG,
+                "[onItemClick] availabilityInfoItem uid = " + availabilityInfoItem.StationUID
+            );
+            Log.d(
+                TAG,
+                "[onItemClick] availabilityInfoItem rent = " + availabilityInfoItem.AvailableRentBikes + ", return = " + availabilityInfoItem.AvailableReturnBikes
+            )
             parentFragmentManager.popBackStack()
-            mapViewModel.setSelectSearchStationUid(stationInfoItem,availabilityInfoItem)
+            mapViewModel.setSelectSearchStationUid(stationInfoItem, availabilityInfoItem)
         }
     }
 
     override fun onShareClick(intent: Intent) {
-        intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+        intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
         val shareIntent = Intent.createChooser(intent, null)
         startActivity(shareIntent)
     }
 
     override fun onNavigationClick(intent: Intent) {
         startActivity(intent)
+    }
+
+    override fun onFavoriteClick(uId: String, add: Boolean) {
+        TODO("Not yet implemented")
     }
 }

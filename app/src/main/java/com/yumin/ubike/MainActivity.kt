@@ -2,31 +2,30 @@ package com.yumin.ubike
 
 import android.Manifest
 import android.app.AlertDialog
-import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.lifecycleScope
 import com.yumin.ubike.databinding.ActivityMapsBinding
-import com.yumin.ubike.repository.RemoteRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 
 /**
  * MapsActivity responsible to check runtime permission
  */
 class MainActivity : AppCompatActivity() {
-    private val TAG: String = "[MapsActivity]"
     private lateinit var binding: ActivityMapsBinding
     private lateinit var layout: View
+
+    companion object{
+        private const val TAG: String = "[MapsActivity]"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,23 +38,18 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMapsBinding.inflate(layoutInflater)
         layout = binding.root
         setContentView(layout)
-
-        // Initialize fragment
-        val mapFragment = MapFragment()
-        // Open fragment
-        supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        Log.d(TAG, "[onNewIntent] ")
-        // check intent here
-        if (intent != null) {
-            val stationUid = intent.getStringExtra("StationUid")
-            Log.d(TAG, "[onNewIntent] GET intent stationUid = $stationUid")
-        }
-        setIntent(intent)
-    }
+//    override fun onNewIntent(intent: Intent?) {
+//        super.onNewIntent(intent)
+//        Log.d(TAG, "[onNewIntent] ")
+//        // check intent here
+//        if (intent != null) {
+//            val stationUid = intent.getStringExtra("StationUid")
+//            Log.d(TAG, "[onNewIntent] GET intent stationUid = $stationUid")
+//        }
+//        setIntent(intent)
+//    }
 
     private fun checkPermissions() {
         if ((ContextCompat.checkSelfPermission(
@@ -85,6 +79,26 @@ class MainActivity : AppCompatActivity() {
         } else {
             // get all permission granted
             Log.d(TAG, "Permission granted")
+
+            if (isInternetConnected()) {
+                // Initialize fragment
+                val mapFragment = MapFragment()
+                // Open fragment
+                supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
+            } else {
+                Toast.makeText(this,"Please check internet!",Toast.LENGTH_LONG).show()
+                finish()
+                // show no internet fragment
+            }
+        }
+    }
+
+    fun isInternetConnected(): Boolean {
+        val cm = this.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            cm.activeNetwork != null && cm.getNetworkCapabilities(cm.activeNetwork) != null
+        } else {
+            cm.activeNetworkInfo != null && cm.activeNetworkInfo!!.isConnectedOrConnecting
         }
     }
 
@@ -118,6 +132,17 @@ class MainActivity : AppCompatActivity() {
                     // permission denied , show dialog to request permissions
                     Log.d(TAG, "[requestPermissionLauncher] ${it.key} permission denied")
                     showAlertDialog()
+                } else {
+                    if (isInternetConnected()) {
+                        // Initialize fragment
+                        val mapFragment = MapFragment()
+                        // Open fragment
+                        supportFragmentManager.beginTransaction().replace(R.id.frame_layout, mapFragment).commit()
+                    } else {
+                        Toast.makeText(this,"Please check internet!",Toast.LENGTH_LONG).show()
+                        finish()
+                        // show no internet fragment
+                    }
                 }
             }
         }
@@ -129,12 +154,16 @@ class MainActivity : AppCompatActivity() {
             stationListFragment.arguments = bundle
 
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout,stationListFragment)
-            .addToBackStack("1").commit()
+            .addToBackStack("station_list").commit()
     }
 
     fun replaceSearchFragment(){
         supportFragmentManager.beginTransaction().replace(R.id.frame_layout,SearchFragment())
-            .addToBackStack("1").commit()
+            .addToBackStack("search").commit()
     }
 
+    fun replaceFavoriteFragment(){
+        supportFragmentManager.beginTransaction().replace(R.id.frame_layout,FavoriteFragment())
+            .addToBackStack("favorite").commit()
+    }
 }

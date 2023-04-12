@@ -1,6 +1,9 @@
 package com.yumin.ubike
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -10,7 +13,6 @@ import android.view.ViewGroup
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import com.google.android.gms.maps.model.LatLng
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
@@ -20,7 +22,6 @@ import java.util.*
 import kotlin.Comparator
 
 class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
-    private val TAG: String = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
     private val viewModel: MapViewModel by activityViewModels{
@@ -32,6 +33,13 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private lateinit var currentLatLng: LatLng
     private var initialDistance: Int = 2000
     private var type: Int = 0
+    private lateinit var receiver: BroadcastReceiver
+    lateinit var sessionManager: SessionManager
+    lateinit var currentLocation:Location
+
+    companion object{
+        private const val TAG: String = "[StationListFragment]"
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -43,6 +51,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         activity?.let {
             WindowCompat.setDecorFitsSystemWindows(it.window, true)
             it.window.statusBarColor = it.getColor(R.color.pink)
+            sessionManager = SessionManager(it)
         }
 
         val bundle = arguments
@@ -65,18 +74,23 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
             // means don't have any lating data
             Log.d(TAG, "[onCreateView] don't have any lating data")
         }
-        initView()
-        observeViewModel()
         getCurrentStationInfo()
+        observeViewModel()
 
-        fragmentStationListBinding.imageButton.setOnClickListener{
-            // popup
-            activity?.let {
-                it.supportFragmentManager.popBackStack()
+        receiver = object : BroadcastReceiver(){
+            override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d(TAG, "[onReceive] intent action : " + intent?.action.toString())
+                getCurrentStationInfo()
             }
         }
 
+        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
         return fragmentStationListBinding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        initView()
     }
 
     private fun getCurrentStationInfo() {
@@ -91,10 +105,16 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private fun initView() {
         stationListAdapter = StationListAdapter(
             this,
-//            Pair(StationInfo(), AvailabilityInfo())
-        mutableListOf(), mutableListOf()
+            mutableListOf(), mutableListOf(), sessionManager
         )
         fragmentStationListBinding.stationListView.adapter = stationListAdapter
+
+        fragmentStationListBinding.imageButton.setOnClickListener{
+            // popup
+            activity?.let {
+                it.supportFragmentManager.popBackStack()
+            }
+        }
     }
 
     /**
@@ -145,6 +165,11 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         return stationList
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        context?.unregisterReceiver(receiver)
+    }
+
     override fun onItemClick(
         view: View,
         item: StationInfoItem,
@@ -167,10 +192,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         startActivity(intent)
     }
 
-    companion object{
-        lateinit var currentLocation:Location
-        public fun getLocation(): Location {
-            return currentLocation
-        }
+    override fun onFavoriteClick(uId: String, add: Boolean) {
+
     }
 }

@@ -139,7 +139,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:backgroundTint="@color/white"
-            android:drawableTop="@drawable/ic_baseline_favorite_24"
+            android:drawableTop="@drawable/ic_baseline_favorite_border_24"
             android:text="@string/favorite"
             android:textColor="@color/primary_800" />
 

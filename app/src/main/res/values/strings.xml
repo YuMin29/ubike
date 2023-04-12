@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ubike</string>
+    <string name="app_name">UbikeMap</string>
     <string name="title_activity_maps">MapsActivity</string>
     <string name="dialog_message">需要授權權限才能執行功能</string>
     <string name="dialog_title">請授權權限</string>
@@ -20,4 +20,5 @@
     <string name="share_subject">Ubike站點資訊</string>
     <string name="km">公里</string>
     <string name="meter">公尺</string>
+    <string name="title_activity_favorite">最愛列表</string>
 </resources>

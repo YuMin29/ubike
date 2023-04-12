@@ -14,21 +14,15 @@ import com.yumin.ubike.repository.RemoteRepository
 import kotlinx.coroutines.*
 
 class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
-    val allCities = arrayListOf<String>("Taichung","Hsinchu","MiaoliCounty","NewTaipei","PingtungCounty",
+    private val allCities = arrayListOf("Taichung","Hsinchu","MiaoliCounty","NewTaipei","PingtungCounty",
         "KinmenCounty","Taoyuan","Taipei","Kaohsiung","Tainan","Chiayi","HsinchuCounty")
 
+//    var progress = MutableLiveData<Event<Boolean>>()
     var selectStationUid = MutableLiveData<Event<String>>()
     var searchStationUid = MutableLiveData<Event<Pair<StationInfoItem,AvailabilityInfoItem>>>()
-
-//    var stationInfoByCity = MutableLiveData<StationInfo>()
-//    var availabilityInfoByCity = MutableLiveData<AvailabilityInfo>()
-
     var stationInfo = MutableLiveData<StationInfo>()
-
     var availabilityInfo = MutableLiveData<AvailabilityInfo>()
-
     var refreshAvailability = MutableLiveData<AvailabilityInfo>()
-
     var stationWholeInfo: MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>> =
         MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>>().apply {
             addSource(stationInfo) {
@@ -52,17 +46,11 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
             }
     }
 
-    companion object {
-        const val TAG = "[MapViewModel]"
-    }
-
     init {
+        Log.d(TAG,"[init]")
         viewModelScope.launch(Dispatchers.IO) {
             repository.getToken()
         }
-
-//        getAllCityStationInfo()
-//        getAllCityAvailabilityInfo()
 
         // TODO 20230208 要做一分鐘自動更新一次的功能
         // 要把最新一次座標&距離儲存起來，來當作最近一次更新的數據
@@ -80,37 +68,33 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
         // 也需要每分鐘更新一次資料(?)
     }
 
+    companion object{
+        private const val TAG = "[MapViewModel]"
+    }
+
     fun getAllCityStationInfo() {
         viewModelScope.launch {
+//            progress.postValue(Event(true))
             val stationInfo = allCities.map { city ->
                 async { repository.getStationInfoByCity(city) }
             }.awaitAll()
             Log.d(TAG,"[getAllCityStationInfo] [postValue]");
             allCityStationInfo.postValue(stationInfo)
+//            progress.postValue(Event(false))
         }
     }
 
     fun getAllCityAvailabilityInfo() {
         viewModelScope.launch {
+//            progress.postValue(Event(true))
             val availabilityInfo = allCities.map { city ->
                 async { repository.getAvailabilityByCity(city) }
             }.awaitAll()
             Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
             allCityAvailabilityInfo.postValue(availabilityInfo)
+//            progress.postValue(Event(false))
         }
     }
-
-//    fun getStationInfo(city: String) {
-//        viewModelScope.launch(Dispatchers.IO) {
-//            stationInfoByCity.postValue(repository.getStationInfoByCity(city))
-//        }
-//    }
-
-//    fun getAvailabilityByCity(city: String) {
-//        viewModelScope.launch(Dispatchers.IO) {
-//            availabilityInfoByCity.postValue(repository.getAvailabilityByCity(city))
-//        }
-//    }
 
     fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
         viewModelScope.launch(Dispatchers.IO) {

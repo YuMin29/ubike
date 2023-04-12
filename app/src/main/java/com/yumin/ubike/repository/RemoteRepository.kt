@@ -12,12 +12,12 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-class RemoteRepository(val sessionManager: SessionManager) {
-    companion object {
-        const val TAG = "[RemoteRepository]"
-    }
-
+class RemoteRepository(private val sessionManager: SessionManager) {
     private var remoteApiService: ApiService = ApiServiceManager.apiService
+
+    companion object{
+        private const val TAG = "[RemoteRepository]"
+    }
 
     suspend fun getAvailabilityByCity(city: String): AvailabilityInfo {
         return suspendCancellableCoroutine {

@@ -1,5 +1,6 @@
 package com.yumin.ubike
 
+import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.net.Uri
@@ -13,12 +14,16 @@ import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.LayoutStationItemBinding
 
-class StationListAdapter(
-    private val clickListener: OnClickListener,
+class StationListAdapter(private val clickListener: OnClickListener,
     private var stationList: MutableList<StationInfoItem>,
-    private var availabilityList: MutableList<AvailabilityInfoItem>
+    private var availabilityList: MutableList<AvailabilityInfoItem>,
+//    private val context: Context,
+    private val sessionManager: SessionManager
 ) : RecyclerView.Adapter<BaseViewHolder>() {
-    private val TAG = "[StationListAdapter]"
+
+    companion object{
+        private const val TAG = "[StationListAdapter]"
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BaseViewHolder {
         val itemLayoutBinding =
@@ -50,6 +55,9 @@ class StationListAdapter(
         private val binding: LayoutStationItemBinding,
         private val listener: OnClickListener
     ) : BaseViewHolder(binding.root), View.OnClickListener {
+
+        private var isFavorite = false
+
         override fun onBind(position: Int) {
             val stationInfoItem = stationList[position]
             val stationNameSplit = stationInfoItem.stationName.zhTw.split("_")
@@ -87,6 +95,30 @@ class StationListAdapter(
                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                 mapIntent.setPackage("com.google.android.apps.maps")
                 listener.onNavigationClick(mapIntent)
+            }
+
+            if (sessionManager.fetchFavoriteList().contains(stationInfoItem.stationUID)) {
+                // change icon
+                binding.star.setImageResource(R.drawable.ic_baseline_favorite_24)
+                isFavorite = true
+            } else {
+                binding.star.setImageResource(R.drawable.ic_baseline_favorite_border_24)
+                isFavorite = false
+            }
+
+            binding.star.setOnClickListener{
+                // add to favorite list
+                // remove from favorite list
+                if (isFavorite) {
+                    isFavorite = false
+                    binding.star.setImageResource(R.drawable.ic_baseline_favorite_border_24)
+                    sessionManager.removeFromFavoriteList(stationInfoItem.stationUID)
+                } else {
+                    isFavorite = true
+                    binding.star.setImageResource(R.drawable.ic_baseline_favorite_24)
+                    sessionManager.addToFavoriteList(stationInfoItem.stationUID)
+                }
+                listener.onFavoriteClick(stationInfoItem.stationUID,isFavorite)
             }
         }
 
@@ -139,5 +171,7 @@ class StationListAdapter(
         fun onShareClick(intent: Intent)
 
         fun onNavigationClick(intent: Intent)
+
+        fun onFavoriteClick(uId: String, add: Boolean)
     }
 }

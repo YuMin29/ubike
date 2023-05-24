@@ -8,6 +8,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 class SessionManager(context: Context) {
+    private val TAG = "[SessionManager]"
     private var sharedPreferences: SharedPreferences =
         context.getSharedPreferences(context.getString(R.string.app_name), Context.MODE_PRIVATE)
     private var favoriteList = ArrayList<String>()
@@ -18,7 +19,6 @@ class SessionManager(context: Context) {
     }
 
     companion object{
-        private const val TAG = "[SessionManager]"
         private const val USER_TOKEN = "user_token"
         private const val FAVORITE_LIST = "favorite_list"
     }

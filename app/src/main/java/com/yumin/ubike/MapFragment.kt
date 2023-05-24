@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -53,13 +52,14 @@ import java.util.*
  * MapFragment responsible for show map
  */
 class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
+    private val TAG = "[MapFragment]"
     private lateinit var fragmentMapBinding: FragmentMapBinding
     private lateinit var locationManager: LocationManager
     private lateinit var mapView: View
     private lateinit var myGoogleMap: GoogleMap
     private val mapViewModel: MapViewModel by activityViewModels {
         val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository)
+        MyViewModelFactory(repository,requireActivity().application)
     }
     private var isDrawCurrentPosition: Boolean = false
     private lateinit var currentLocationWhenStart: LatLng
@@ -79,22 +79,16 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private lateinit var sessionManager: SessionManager
 
     companion object {
-        private const val TAG = "[MapFragment]"
-        lateinit var currentLatLng: LatLng
-        fun getLocation(): Location {
-            var location = Location("")
-            location.longitude = currentLatLng.longitude
-            location.latitude = currentLatLng.latitude
-            return location
+        const val stationRange = 2000
+
+        // default => Taipei station
+        var currentLocation: Location = Location(LocationManager.NETWORK_PROVIDER).apply {
+            longitude = 25.048874128990544
+            latitude = 121.513878757331
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        Log.d(TAG, "[onCreateView]")
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         Log.d(TAG, "[onCreateView]")
         fragmentMapBinding = FragmentMapBinding.inflate(inflater)
         // setup status bar color to transparent
@@ -105,8 +99,6 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-//        setupMap()
-//        setupUI()
         checkPermission()
     }
 
@@ -115,8 +107,19 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             requestLocationPermission();
         } else {
             // permission granted
-            init()
+            initializeMapFragment()
         }
+    }
+
+    private fun initializeMapFragment() {
+        fragmentMapBinding.mapGroup.visibility = View.VISIBLE
+        fragmentMapBinding.locationOff.visibility = View.GONE
+        sessionManager = SessionManager(requireContext())
+        locationManager = requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        //Get current location by network
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
+        setupUI()
+        setupReceiver()
     }
 
     private fun requestLocationPermission() {
@@ -145,26 +148,14 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     }
 
     private val requestSinglePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            // granted
-            init()
-        } else {
-            // show no permission error
-            Toast.makeText(requireContext(), getString(R.string.denied_location_permission), Toast.LENGTH_SHORT).show()
+            if (granted) {
+                // granted
+                initializeMapFragment()
+            } else {
+                // show no permission error
+                Toast.makeText(requireContext(), getString(R.string.denied_location_permission), Toast.LENGTH_SHORT).show()
+            }
         }
-    }
-
-    private fun init() {
-        fragmentMapBinding.mapGroup.visibility = View.VISIBLE
-        fragmentMapBinding.locationOff.visibility = View.GONE
-        sessionManager = SessionManager(requireContext())
-        locationManager = requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        //Get current location by network
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
-        setupMap()
-        setupUI()
-        setupReceiver()
-    }
 
     private fun setupReceiver() {
         receiver = object : BroadcastReceiver() {
@@ -176,54 +167,29 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
                 latestRefreshTime = Calendar.getInstance().time
 
-                context?.let {
-                    if (NetworkChecker.checkConnectivity(it)) {
-                        mapViewModel.getAllCityStationInfo()
-                        mapViewModel.getAllCityAvailabilityInfo()
-                    }
+                if (NetworkChecker.checkConnectivity(requireContext())) {
+                    mapViewModel.getAllCityStationInfo()
+                    mapViewModel.getAllCityAvailabilityInfo()
                 }
             }
         }
         requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
-    private fun setupMap() {
-        (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync(this)
-        mapView =
-            (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).requireView()
-    }
-
-    private fun refreshAvailabilityData() {
-        Log.d(
-            TAG, "[refreshAvailabilityData] lat : ${currentLatLng.latitude}, " +
-                    "lon : ${currentLatLng.longitude}, distance : ${zoomDistance.toInt()}"
-        )
-        mapViewModel.getAvailabilityNearBy(
-            currentLatLng.latitude,
-            currentLatLng.longitude,
-            2000,
-            ubikeType,
-            true
-        )
-    }
-
     private fun setupUI() {
+        (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).getMapAsync(this)
+        mapView = (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).requireView()
+
         fragmentMapBinding.ubikeAll.setOnClickListener {
-            ubikeType = 0
-            clearMap()
-            getCurrentStationInfo()
+            clickUbikeType("all")
         }
 
         fragmentMapBinding.ubike10.setOnClickListener {
-            ubikeType = 1
-            clearMap()
-            getCurrentStationInfo()
+            clickUbikeType("1.0")
         }
 
         fragmentMapBinding.ubike20.setOnClickListener {
-            ubikeType = 2
-            clearMap()
-            getCurrentStationInfo()
+            clickUbikeType("2.0")
         }
 
         fragmentMapBinding.favoriteStationInfo.setOnClickListener {
@@ -237,8 +203,8 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
         fragmentMapBinding.stationInfoListView.setOnClickListener {
             val bundle = Bundle().apply {
-                putDouble("longitude", currentLatLng.longitude)
-                putDouble("latitude", currentLatLng.latitude)
+                putDouble("longitude", currentLocation.longitude)
+                putDouble("latitude", currentLocation.latitude)
                 putInt("distance", zoomDistance.toInt())
                 putParcelable("location", myGoogleMap.myLocation)
                 putInt("type", ubikeType)
@@ -251,32 +217,44 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         }
     }
 
+    private fun clickUbikeType(type: String) {
+        ubikeType = when (type) {
+            "1.0" -> 1
+            "2.0" -> 2
+            else -> {0}
+        }
+        clearMap()
+        getStationInfo()
+    }
+
+    private fun refreshAvailabilityData() {
+        Log.d(TAG, "[refreshAvailabilityData] lat : ${currentLocation.latitude}, " + "lon : ${currentLocation.longitude}, distance : ${zoomDistance.toInt()}")
+        if (NetworkChecker.checkConnectivity(requireContext())) {
+            mapViewModel.getAvailabilityNearBy(
+                currentLocation.latitude,
+                currentLocation.longitude,
+                stationRange,
+                ubikeType,
+                true
+            )
+        }
+    }
+
     private fun clearMap() {
         myGoogleMap.clear()
         googleMapMarkers.clear()
     }
 
-    private fun getCurrentStationInfo() {
-        mapViewModel.getStationInfoNearBy(
-            currentLatLng.latitude,
-            currentLatLng.longitude,
-            2000,
-            ubikeType
-        )
-        mapViewModel.getAvailabilityNearBy(
-            currentLatLng.latitude,
-            currentLatLng.longitude,
-            2000,
-            ubikeType,
-            false
-        )
+    private fun getStationInfo() {
+        if (NetworkChecker.checkConnectivity(requireContext())) {
+            mapViewModel.getStationInfoNearBy(currentLocation.latitude, currentLocation.longitude, stationRange, ubikeType)
+            mapViewModel.getAvailabilityNearBy(currentLocation.latitude, currentLocation.longitude, stationRange, ubikeType, false)
+        }
     }
 
     private fun getZoomDistance(): Double {
         val visibleRegion = myGoogleMap.projection.visibleRegion
-        val distance: Double = SphericalUtil.computeDistanceBetween(
-            visibleRegion.farLeft, myGoogleMap.cameraPosition.target
-        )
+        val distance: Double = SphericalUtil.computeDistanceBetween(visibleRegion.farLeft, myGoogleMap.cameraPosition.target)
         Log.d(TAG, "[getZoomDistance] DISTANCE = $distance");
         return distance
     }
@@ -292,7 +270,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                 // clear markers
                 clearMap()
                 // create new cluster
-                addMarker(this.first, this.second)
+                addSingleMarker(this.first, this.second)
             }
         })
 
@@ -307,29 +285,16 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         })
 
         mapViewModel.stationWholeInfo.observe(viewLifecycleOwner, Observer { stationWholeInfo ->
-            Log.d(
-                TAG,
-                "[observeViewModelData] stationWholeInfo first  : " + stationWholeInfo.first?.size
-            )
-            Log.d(
-                TAG,
-                "[observeViewModelData] stationWholeInfo second : " + stationWholeInfo.second?.size
-            )
+            Log.d(TAG, "[observeViewModelData] stationWholeInfo first  : " + stationWholeInfo.first?.size)
+            Log.d(TAG, "[observeViewModelData] stationWholeInfo second : " + stationWholeInfo.second?.size)
             if (stationWholeInfo.first?.size == stationWholeInfo.second?.size) {
                 stationWholeInfo.second?.let { availableValue -> availableList = availableValue }
-                stationWholeInfo.first?.let { stationValue ->
-                    addGoogleMapMarkers(stationValue)
-                }
+                stationWholeInfo.first?.let { stationValue -> addGoogleMapMarkers(stationValue) }
             }
         })
 
-        mapViewModel.refreshAvailability.observe(
-            viewLifecycleOwner,
-            Observer { refreshAvailability ->
-                Log.d(
-                    TAG,
-                    "[observeViewModelData] refreshAvailability size : " + refreshAvailability.size
-                )
+        mapViewModel.refreshAvailability.observe(viewLifecycleOwner, Observer { refreshAvailability ->
+                Log.d(TAG, "[observeViewModelData] refreshAvailability size : " + refreshAvailability.size)
                 availableList = refreshAvailability
                 // TODO : need to update cluster icon
                 updateGoogleMapMarkers(refreshAvailability)
@@ -341,7 +306,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         // release here
         Log.d(TAG, "[onDestroyView]")
         clearMap()
-        context?.unregisterReceiver(receiver)
+        requireContext().unregisterReceiver(receiver)
     }
 
     override fun onLocationChanged(location: Location) {
@@ -355,17 +320,10 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         }
     }
 
-    private fun showBottomSheetDialog(
-        stationInfoItem: StationInfoItem,
-        availabilityInfoItem: AvailabilityInfoItem
-    ) {
+    private fun showBottomSheetDialog(stationInfoItem: StationInfoItem, availabilityInfoItem: AvailabilityInfoItem) {
         // scale icon bitmap => big bitmap
-        val iconId = getRateIcon(
-            availabilityInfoItem.AvailableRentBikes,
-            availabilityInfoItem.AvailableReturnBikes
-        )
-        showingMarker?.setIcon(getBitmapFromVector(context, iconId, 130, 130))
-
+        val iconId = getRateIcon(availabilityInfoItem.AvailableRentBikes, availabilityInfoItem.AvailableReturnBikes)
+        showingMarker?.setIcon(getBitmapFromVector(requireContext(), iconId, 130, 130))
 
         val dialog = BottomSheetDialog(requireContext(), R.style.Theme_NoWiredStrapInNavigationBar)
         val bindView = LayoutBottomSheetDialogBinding.inflate(layoutInflater)
@@ -387,19 +345,13 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         var currentTimeDate = Calendar.getInstance().time
         var diff = currentTimeDate.time - latestRefreshTime.time
         val diffSeconds = (diff / 1000).toInt()
-        Log.d(
-            TAG,
-            "[showBottomSheetDialog] latestRefreshTime time = ${latestRefreshTime.toString()}"
-        )
+        Log.d(TAG, "[showBottomSheetDialog] latestRefreshTime time = ${latestRefreshTime.toString()}")
         Log.d(TAG, "[showBottomSheetDialog] currentTimeDate = ${currentTimeDate.toString()}")
 
         bindView.updateTime.text = diffSeconds.toString() + "秒前更新"
 
         // show station distance
-        val stationLatLng = LatLng(
-            stationInfoItem.stationPosition.positionLat,
-            stationInfoItem.stationPosition.positionLon
-        )
+        val stationLatLng = LatLng(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon)
         val distance = getStationDistance(stationLatLng)
         bindView.distance.text = "距離" + distance
         Log.d(TAG, "[showBottomSheetDialog] show distance = " + getStationDistance(stationLatLng))
@@ -460,10 +412,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             // dismiss
             Log.d(TAG, "[Dialog] dismiss")
             // scale icon bitmap => big bitmap
-            val iconId = getRateIcon(
-                availabilityInfoItem.AvailableRentBikes,
-                availabilityInfoItem.AvailableReturnBikes
-            )
+            val iconId = getRateIcon(availabilityInfoItem.AvailableRentBikes, availabilityInfoItem.AvailableReturnBikes)
             showingMarker?.setIcon(getBitmapFromVector(context, iconId, -1, -1))
             showingMarker = null
         }
@@ -474,25 +423,25 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     }
 
     private fun getStationDistance(stationLatLng: LatLng): String {
-        var stationLocation = Location("station")
-        stationLocation.latitude = stationLatLng.latitude
-        stationLocation.longitude = stationLatLng.longitude
+        var stationLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
+            latitude = stationLatLng.latitude
+            longitude = stationLatLng.longitude
+        }
+
         val distance = stationLocation.distanceTo(myGoogleMap.myLocation)
 
         return if (distance > 1000) {
             "%.2f".format(distance / 1000).toString() + getString(R.string.km)
-        } else
+        } else {
             distance.toInt().toString() + getString(R.string.meter)
+        }
     }
 
     private fun getStationDistanceF(stationLatLng: LatLng): Float {
-        var stationLocation = Location("station")
-        stationLocation.latitude = stationLatLng.latitude
-        stationLocation.longitude = stationLatLng.longitude
-
-        var currentLocation = Location("")
-        currentLocation.latitude = currentLatLng.latitude
-        currentLocation.longitude = currentLatLng.longitude
+        var stationLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
+            latitude = stationLatLng.latitude
+            longitude = stationLatLng.longitude
+        }
 
         val distance = stationLocation.distanceTo(currentLocation)
 
@@ -529,26 +478,14 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         return null
     }
 
-    private fun addMarker(
-        stationInfoItem: StationInfoItem,
-        availabilityInfoItem: AvailabilityInfoItem
-    ) {
+    private fun addSingleMarker(stationInfoItem: StationInfoItem, availabilityInfoItem: AvailabilityInfoItem) {
         // move to search station
         if (isMoveToSearchStation && !isMoveToSelectedStation) {
-            Log.d(
-                TAG,
-                "Find SEARCH station! position = " + stationInfoItem.stationPosition.toString()
-            )
-            myGoogleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                LatLng(
-                    stationInfoItem.stationPosition.positionLat,
-                    stationInfoItem.stationPosition.positionLon
-                ),
-                16f
-            ), 1000,
+            Log.d(TAG, "Find SEARCH station! position = " + stationInfoItem.stationPosition.toString())
+            myGoogleMap.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(LatLng(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon), 16f), 1000,
                 object : GoogleMap.CancelableCallback {
                     override fun onCancel() {
-
                     }
 
                     override fun onFinish() {
@@ -557,12 +494,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                             availabilityInfoItem.AvailableReturnBikes
                         )
                         val markerOptions = MarkerOptions()
-                            .position(
-                                LatLng(
-                                    stationInfoItem.stationPosition.positionLat,
-                                    stationInfoItem.stationPosition.positionLon
-                                )
-                            )
+                            .position(LatLng(stationInfoItem.stationPosition.positionLat, stationInfoItem.stationPosition.positionLon))
                             .title(stationInfoItem.stationName.zhTw)
                             .icon(getBitmapFromVector(context, iconId, 130, 130))
 
@@ -591,7 +523,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         width: Int,
         height: Int
     ): BitmapDescriptor {
-        var drawable = context?.let { ContextCompat.getDrawable(it, drawableId) }
+        var drawable = ContextCompat.getDrawable(requireContext(), drawableId)
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             drawable = DrawableCompat.wrap(drawable!!).mutate()
@@ -629,7 +561,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                         stationInfoItem.stationPosition.positionLon
                     )
                 )
-                if (distance > 2000) {
+                if (distance > stationRange) {
                     googleMapMarkers.get(stationInfoItem.stationUID)?.remove()
                     googleMapMarkers.remove(stationInfoItem.stationUID)
                 } else {
@@ -680,7 +612,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                     entry.value.position.longitude
                 )
             )
-            if (distance > 2000) {
+            if (distance > stationRange) {
                 entry.value.remove()
                 iterator.remove()
             }
@@ -724,9 +656,10 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
         mapCircle =
             myGoogleMap.addCircle(
-                CircleOptions().center(currentLatLng).radius(2000.0)
-                    .strokeColor(Color.parseColor("#96CCCCCC")).strokeWidth(5f)
-                    .fillColor(Color.parseColor("#96CCCCCC"))
+                CircleOptions().center(LatLng(currentLocation.latitude, currentLocation.longitude))
+                    .radius(stationRange.toDouble())
+                    .strokeColor(requireContext().getColor(R.color.map_circle)).strokeWidth(5f)
+                    .fillColor(requireContext().getColor(R.color.map_circle))
             )
 
     }
@@ -787,18 +720,22 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
             Log.d(TAG, "Current zoom level : " + myGoogleMap.cameraPosition.zoom);
 
-            currentLatLng = this.myGoogleMap.cameraPosition.target
+            currentLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
+                latitude = myGoogleMap.cameraPosition.target.latitude
+                longitude = myGoogleMap.cameraPosition.target.longitude
+            }
             Log.d(
                 TAG,
-                "[setOnCameraIdleListener] currentLatLng = ${currentLatLng.latitude},${currentLatLng.longitude}"
+                "[setOnCameraIdleListener] currentLocation = ${currentLocation.latitude},${currentLocation.longitude} " +
+                        ", distance : ${zoomDistance.toInt()}"
             )
 
 
-            getCurrentStationInfo()
+            getStationInfo()
 
             Log.d(
-                TAG, "[setOnCameraIdleListener] lat : ${currentLatLng.latitude}, " +
-                        "lon : ${currentLatLng.longitude}, distance : ${zoomDistance.toInt()}"
+                TAG, "[setOnCameraIdleListener] lat : ${currentLocation.latitude}, " +
+                        "lon : ${currentLocation.longitude}, distance : ${zoomDistance.toInt()}"
             )
 
             if (!isRefreshed)

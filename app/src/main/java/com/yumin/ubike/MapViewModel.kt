@@ -1,11 +1,9 @@
 package com.yumin.ubike
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.MediatorLiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
@@ -13,7 +11,8 @@ import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.repository.RemoteRepository
 import kotlinx.coroutines.*
 
-class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
+class MapViewModel(private val repository: RemoteRepository, application:Application) : AndroidViewModel(application) {
+    private val TAG = "[MapViewModel]"
     private val allCities = arrayListOf("Taichung","Hsinchu","MiaoliCounty","NewTaipei","PingtungCounty",
         "KinmenCounty","Taoyuan","Taipei","Kaohsiung","Tainan","Chiayi","HsinchuCounty")
 
@@ -48,8 +47,10 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
 
     init {
         Log.d(TAG,"[init]")
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.getToken()
+        if (NetworkChecker.checkConnectivity(getApplication())){
+            viewModelScope.launch(Dispatchers.IO) {
+                repository.getToken()
+            }
         }
 
         // TODO 20230208 要做一分鐘自動更新一次的功能
@@ -68,81 +69,79 @@ class MapViewModel(private val repository: RemoteRepository) : ViewModel() {
         // 也需要每分鐘更新一次資料(?)
     }
 
-    companion object{
-        private const val TAG = "[MapViewModel]"
-    }
-
     fun getAllCityStationInfo() {
-        viewModelScope.launch {
+        if (NetworkChecker.checkConnectivity(getApplication())) {
+            viewModelScope.launch {
 //            progress.postValue(Event(true))
-            val stationInfo = allCities.map { city ->
-                async { repository.getStationInfoByCity(city) }
-            }.awaitAll()
-            Log.d(TAG,"[getAllCityStationInfo] [postValue]");
-            allCityStationInfo.postValue(stationInfo)
+                val stationInfo = allCities.map { city ->
+                    async { repository.getStationInfoByCity(city) }
+                }.awaitAll()
+                Log.d(TAG,"[getAllCityStationInfo] [postValue]");
+                allCityStationInfo.postValue(stationInfo)
 //            progress.postValue(Event(false))
+            }
         }
     }
 
     fun getAllCityAvailabilityInfo() {
-        viewModelScope.launch {
+        if (NetworkChecker.checkConnectivity(getApplication())) {
+            viewModelScope.launch {
 //            progress.postValue(Event(true))
-            val availabilityInfo = allCities.map { city ->
-                async { repository.getAvailabilityByCity(city) }
-            }.awaitAll()
-            Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
-            allCityAvailabilityInfo.postValue(availabilityInfo)
+                val availabilityInfo = allCities.map { city ->
+                    async { repository.getAvailabilityByCity(city) }
+                }.awaitAll()
+                Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
+                allCityAvailabilityInfo.postValue(availabilityInfo)
 //            progress.postValue(Event(false))
+            }
         }
     }
 
     fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
+        if (NetworkChecker.checkConnectivity(getApplication())) {
+            viewModelScope.launch(Dispatchers.IO) {
 
-            var queryServiceType: String? = when (type) {
-                1 -> "ServiceType eq '1'"
-                2 -> "ServiceType eq '2'"
-                else -> null
-            }
+                var queryServiceType: String? = when (type) {
+                    1 -> "ServiceType eq '1'"
+                    2 -> "ServiceType eq '2'"
+                    else -> null
+                }
 
-            stationInfo.postValue(
-                repository.getStationInfoNearBy(
-                    "nearby($latitude, $longitude, $distance)",
-                    queryServiceType
+                stationInfo.postValue(
+                    repository.getStationInfoNearBy(
+                        "nearby($latitude, $longitude, $distance)",
+                        queryServiceType
+                    )
                 )
-            )
+            }
         }
     }
 
-    fun getAvailabilityNearBy(
-        latitude: Double,
-        longitude: Double,
-        distance: Int,
-        type: Int,
-        refresh: Boolean
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
+    fun getAvailabilityNearBy(latitude: Double, longitude: Double, distance: Int, type: Int, refresh: Boolean) {
+        if (NetworkChecker.checkConnectivity(getApplication())) {
+            viewModelScope.launch(Dispatchers.IO) {
 
-            var queryServiceType: String? = when (type) {
-                1 -> "ServiceType eq '1'"
-                2 -> "ServiceType eq '2'"
-                else -> null
-            }
+                var queryServiceType: String? = when (type) {
+                    1 -> "ServiceType eq '1'"
+                    2 -> "ServiceType eq '2'"
+                    else -> null
+                }
 
-            if (!refresh) {
-                availabilityInfo.postValue(
-                    repository.getAvailabilityInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
+                if (!refresh) {
+                    availabilityInfo.postValue(
+                        repository.getAvailabilityInfoNearBy(
+                            "nearby($latitude, $longitude, $distance)",
+                            queryServiceType
+                        )
                     )
-                )
-            } else {
-                refreshAvailability.postValue(
-                    repository.getAvailabilityInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
+                } else {
+                    refreshAvailability.postValue(
+                        repository.getAvailabilityInfoNearBy(
+                            "nearby($latitude, $longitude, $distance)",
+                            queryServiceType
+                        )
                     )
-                )
+                }
             }
         }
     }

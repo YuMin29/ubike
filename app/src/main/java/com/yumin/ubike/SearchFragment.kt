@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -25,6 +26,7 @@ import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
 
 class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
+    private val TAG = "[SearchFragment]"
     lateinit var fragmentSearchBinding: FragmentSearchBinding
     var stationList: MutableList<StationInfoItem> = mutableListOf()
     var availabilityInfoList: MutableList<AvailabilityInfoItem> = mutableListOf()
@@ -33,17 +35,13 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
     var queryStringEvent: Event<String>? = null
 
     private val mapViewModel: MapViewModel by activityViewModels {
-        val activity = requireNotNull(this.activity)
-        val repository = RemoteRepository(SessionManager(activity))
-        MyViewModelFactory(repository)
+        val repository = RemoteRepository(SessionManager(requireActivity()))
+        MyViewModelFactory(repository,requireActivity().application)
     }
     private lateinit var stationListAdapter: StationListAdapter
 
     // 資料來不及拿到就等query時顯示progress bar處理
     // 再由這頁每分鐘更新一次
-    companion object {
-        private const val TAG = "[SearchFragment]"
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -55,10 +53,8 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
 
         fragmentSearchBinding = FragmentSearchBinding.inflate(inflater)
 
-        activity?.let {
-            WindowCompat.setDecorFitsSystemWindows(it.window, true)
-            sessionManager = SessionManager(it)
-        }
+        WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
+        sessionManager = SessionManager(requireActivity())
 
         observeViewModel()
 
@@ -70,7 +66,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
             }
         }
 
-        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
+        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
 
         return fragmentSearchBinding.root
     }
@@ -78,9 +74,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         fragmentSearchBinding.imageButton.setOnClickListener {
-            activity?.let {
-                findNavController().popBackStack()
-            }
+            findNavController().popBackStack()
         }
 
         stationListAdapter =
@@ -112,7 +106,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
         fragmentSearchBinding.searchView2.setOnQueryTextFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 val inputMethodManager =
-                    context?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 inputMethodManager.showSoftInput(view, 0)
             }
         }
@@ -121,7 +115,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        context?.unregisterReceiver(receiver)
+        requireContext().unregisterReceiver(receiver)
     }
 
     private fun filterList(queryString: String?) {
@@ -163,18 +157,21 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
         val comparator = Comparator<StationInfoItem?> { item1, item2 ->
             var distance1 = 0f
             if (item1 != null) {
-                val location1 = Location("")
-                location1.latitude = item1.stationPosition.positionLat
-                location1.longitude = item1.stationPosition.positionLon
-                distance1 = MapFragment.getLocation().distanceTo(location1)
+                val location1 = Location(LocationManager.NETWORK_PROVIDER).apply{
+                    latitude = item1.stationPosition.positionLat
+                    longitude = item1.stationPosition.positionLon
+                }
+
+                distance1 = MapFragment.currentLocation.distanceTo(location1)
             }
 
             var distance2 = 0f
             if (item2 != null) {
-                val location2 = Location("")
-                location2.latitude = item2.stationPosition.positionLat
-                location2.longitude = item2.stationPosition.positionLon
-                distance2 = MapFragment.getLocation().distanceTo(location2)
+                val location2 = Location(LocationManager.NETWORK_PROVIDER).apply{
+                    latitude = item2.stationPosition.positionLat
+                    longitude = item2.stationPosition.positionLon
+                }
+                distance2 = MapFragment.currentLocation.distanceTo(location2)
             }
 
 //            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -26,9 +27,8 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
     private val viewModel: MapViewModel by activityViewModels{
-        val activity = requireNotNull(this.activity)
-        val repository = RemoteRepository(SessionManager(activity))
-        MyViewModelFactory(repository)
+        val repository = RemoteRepository(SessionManager(requireActivity()))
+        MyViewModelFactory(repository,requireActivity().application)
     }
     private lateinit var remoteRepository: RemoteRepository
     private lateinit var currentLatLng: LatLng
@@ -49,28 +49,21 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     ): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
 
-        activity?.let {
-            WindowCompat.setDecorFitsSystemWindows(it.window, true)
-            it.window.statusBarColor = it.getColor(R.color.pink)
-            sessionManager = SessionManager(it)
-        }
+        WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
+        sessionManager = SessionManager(requireContext())
 
         val bundle = arguments
         if (bundle != null) {
             currentLatLng = LatLng(bundle.getDouble("latitude"), bundle.getDouble("longitude"))
-            currentLocation = Location("")
-            currentLocation.latitude = currentLatLng.latitude
-            currentLocation.longitude = currentLatLng.longitude
+            currentLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
+                latitude = currentLatLng.latitude
+                longitude = currentLatLng.longitude
+            }
             Log.d(TAG, "[onCreateView] currentLatLng = $currentLatLng")
             type = bundle.getInt("type")
 
-            Log.d(
-                TAG,
-                "[extras] longitude = ${bundle.getDouble("longitude")} ,latitude = ${
-                    bundle.getDouble("latitude")
-                }" +
-                        ",distance = $initialDistance"
-            )
+            Log.d(TAG, "[extras] longitude = ${bundle.getDouble("longitude")} ,latitude = ${bundle.getDouble("latitude")}" + ",distance = $initialDistance")
         } else {
             // means don't have any lating data
             Log.d(TAG, "[onCreateView] don't have any lating data")
@@ -85,7 +78,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
             }
         }
 
-        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
+        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
         return fragmentStationListBinding.root
     }
 
@@ -112,9 +105,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
 
         fragmentStationListBinding.imageButton.setOnClickListener{
             // popup
-            activity?.let {
-                findNavController().popBackStack()
-            }
+            findNavController().popBackStack()
         }
     }
 
@@ -144,17 +135,19 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         val comparator = Comparator<StationInfoItem?> { item1, item2 ->
             var distance1 = 0f
             if (item1 != null) {
-                val location1 = Location("")
-                location1.latitude = item1.stationPosition.positionLat
-                location1.longitude = item1.stationPosition.positionLon
+                val location1 = Location(LocationManager.NETWORK_PROVIDER).apply {
+                    latitude = item1.stationPosition.positionLat
+                    longitude = item1.stationPosition.positionLon
+                }
                 distance1 = currentLocation.distanceTo(location1)
             }
 
             var distance2 = 0f
             if (item2 != null) {
-                val location2 = Location("")
-                location2.latitude = item2.stationPosition.positionLat
-                location2.longitude = item2.stationPosition.positionLon
+                val location2 = Location(LocationManager.NETWORK_PROVIDER).apply {
+                    latitude = item2.stationPosition.positionLat
+                    longitude = item2.stationPosition.positionLon
+                }
                 distance2 = currentLocation.distanceTo(location2)
             }
 
@@ -168,7 +161,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
 
     override fun onDestroyView() {
         super.onDestroyView()
-        context?.unregisterReceiver(receiver)
+        requireContext().unregisterReceiver(receiver)
     }
 
     override fun onItemClick(

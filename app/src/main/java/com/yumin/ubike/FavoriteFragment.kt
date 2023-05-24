@@ -22,23 +22,19 @@ import com.yumin.ubike.databinding.FragmentFavoriteBinding
 import com.yumin.ubike.repository.RemoteRepository
 
 class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
+    private val TAG = "[FavoriteFragment]"
     private lateinit var favoriteBinding:FragmentFavoriteBinding
     private lateinit var sessionManager : SessionManager
     private lateinit var stationListAdapter: StationListAdapter
     private val mapViewModel: MapViewModel by activityViewModels{
-        val activity = requireNotNull(this.activity)
-        val repository = RemoteRepository(SessionManager(activity))
-        MyViewModelFactory(repository)
+        val repository = RemoteRepository(SessionManager(requireActivity()))
+        MyViewModelFactory(repository,requireActivity().application)
     }
     private lateinit var favoriteList : ArrayList<String>
     private lateinit var stationInfoList : MutableList<StationInfoItem>
     private lateinit var availabilityInfoList : MutableList<AvailabilityInfoItem>
     private lateinit var pairInfo : Pair<List<StationInfo>?,List<AvailabilityInfo>?>
     private lateinit var receiver: BroadcastReceiver
-
-    companion object{
-        private const val TAG = "[FavoriteFragment]"
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,11 +43,9 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
     ): View? {
         favoriteBinding = FragmentFavoriteBinding.inflate(inflater)
 
-        activity?.let {
-            WindowCompat.setDecorFitsSystemWindows(it.window, true)
-            it.window.statusBarColor = it.getColor(R.color.secondary_orange)
-        }
-        context?.let { sessionManager = SessionManager(it) }
+        WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.secondary_orange)
+        sessionManager = SessionManager(requireContext())
 
         // get favorite station info
         favoriteList = sessionManager.fetchFavoriteList()
@@ -64,7 +58,7 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
                 mapViewModel.getAllCityStationInfo()
             }
         }
-        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
+        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
         // view model get all station info
         // find station info and show on the recycler view
         observeViewModel()
@@ -79,9 +73,7 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
         favoriteBinding.favoriteRecyclerView.adapter = stationListAdapter
         favoriteBinding.imageButton.setOnClickListener{
             // popup
-            activity?.let {
-                findNavController().popBackStack()
-            }
+            findNavController().popBackStack()
         }
     }
 
@@ -131,7 +123,7 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        context?.unregisterReceiver(receiver)
+        requireContext().unregisterReceiver(receiver)
     }
 
     override fun onItemClick(

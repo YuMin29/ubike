@@ -3,6 +3,7 @@ package com.yumin.ubike
 import android.content.Context
 import android.content.Intent
 import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
 import android.util.Log
 import android.view.LayoutInflater
@@ -21,9 +22,7 @@ class StationListAdapter(private val clickListener: OnClickListener,
     private val sessionManager: SessionManager
 ) : RecyclerView.Adapter<BaseViewHolder>() {
 
-    companion object{
-        private const val TAG = "[StationListAdapter]"
-    }
+    private val TAG = "[StationListAdapter]"
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BaseViewHolder {
         val itemLayoutBinding =
@@ -132,10 +131,11 @@ class StationListAdapter(private val clickListener: OnClickListener,
     }
 
     fun getStationDistance(stationLatLng: LatLng): String {
-        var stationLocation = Location("")
-        stationLocation.latitude = stationLatLng.latitude
-        stationLocation.longitude = stationLatLng.longitude
-        val distance = stationLocation.distanceTo(MapFragment.getLocation())
+        var stationLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
+            latitude = stationLatLng.latitude
+            longitude = stationLatLng.longitude
+        }
+        val distance = stationLocation.distanceTo(MapFragment.currentLocation)
 
         return if (distance > 1000) {
             "%.2f".format(distance / 1000).toString() + "公里"

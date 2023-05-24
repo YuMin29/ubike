@@ -13,15 +13,11 @@ import retrofit2.Callback
 import retrofit2.Response
 
 class RemoteRepository(private val sessionManager: SessionManager) {
-    private var remoteApiService: ApiService = ApiServiceManager.apiService
-
-    companion object{
-        private const val TAG = "[RemoteRepository]"
-    }
+    private val TAG = "[RemoteRepository]"
 
     suspend fun getAvailabilityByCity(city: String): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityByCity(sessionManager.fetchAuthToken(), city).enqueue(
+            ApiServiceManager.apiService.getAvailabilityByCity(sessionManager.fetchAuthToken(), city).enqueue(
                 object : Callback<AvailabilityInfo> {
                     override fun onResponse(
                         call: Call<AvailabilityInfo>,
@@ -42,7 +38,7 @@ class RemoteRepository(private val sessionManager: SessionManager) {
 
     suspend fun getStationInfoByCity(city: String): StationInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getStationInfoByCity(sessionManager.fetchAuthToken(), city).enqueue(
+            ApiServiceManager.apiService.getStationInfoByCity(sessionManager.fetchAuthToken(), city).enqueue(
                 object : Callback<StationInfo> {
                     override fun onResponse(
                         call: Call<StationInfo>,
@@ -64,7 +60,7 @@ class RemoteRepository(private val sessionManager: SessionManager) {
     suspend fun getStationInfoNearBy(nearBy: String, serviceType: String?): StationInfo {
         Log.d(TAG, "[getStationInfoNearBy] nearBy = $nearBy")
         return suspendCancellableCoroutine {
-            remoteApiService.getStationInfoNearBy(
+            ApiServiceManager.apiService.getStationInfoNearBy(
                 sessionManager.fetchAuthToken(),
                 nearBy,
                 serviceType,
@@ -90,7 +86,7 @@ class RemoteRepository(private val sessionManager: SessionManager) {
 
     suspend fun getAvailabilityInfoNearBy(nearBy: String, serviceType: String?): AvailabilityInfo {
         return suspendCancellableCoroutine {
-            remoteApiService.getAvailabilityInfoNearBy(
+            ApiServiceManager.apiService.getAvailabilityInfoNearBy(
                 sessionManager.fetchAuthToken(),
                 nearBy,
                 serviceType,
@@ -117,7 +113,7 @@ class RemoteRepository(private val sessionManager: SessionManager) {
     suspend fun getToken() {
         // suspendCancellableCoroutine -> 具有回傳值，且可以返回exception
         return suspendCancellableCoroutine {
-            remoteApiService.getToken(
+            ApiServiceManager.apiService.getToken(
                 "client_credentials",
                 BuildConfig.CLIENT_ID, BuildConfig.CLIENT_SECRET
             ).enqueue(                              //enqueue->發出請求

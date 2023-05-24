@@ -15,7 +15,7 @@ object ApiServiceManager {
 
     private val okHttpClient: OkHttpClient =
         OkHttpClient.Builder()
-            .connectTimeout(10000, TimeUnit.MILLISECONDS)
+            .connectTimeout(5000, TimeUnit.MILLISECONDS)
             .addInterceptor(httpLoggingInterceptor)
             .build()
 

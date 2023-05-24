@@ -10,6 +10,10 @@ import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.repository.RemoteRepository
 import kotlinx.coroutines.*
+import okhttp3.ResponseBody
+import org.json.JSONObject
+import retrofit2.Call
+import retrofit2.Response
 
 class MapViewModel(private val repository: RemoteRepository, application:Application) : AndroidViewModel(application) {
     private val TAG = "[MapViewModel]"
@@ -45,41 +49,53 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
             }
     }
 
+    var sessionManager = SessionManager(getApplication())
+
     init {
-        Log.d(TAG,"[init]")
-        if (NetworkChecker.checkConnectivity(getApplication())){
+        Log.d(TAG,"[init_block]")
+        getToken()
+    }
+
+    private fun getToken() {
+        if (NetworkChecker.checkConnectivity(getApplication())) {
             viewModelScope.launch(Dispatchers.IO) {
-                repository.getToken()
+                val response = repository.getToken()
+                if (response.isSuccessful) {
+                    response.body()?.let { result ->
+                        var bodyContent = result.string()
+                        var jsonObject = JSONObject(bodyContent)
+                        Log.d(TAG, "getToken onResponse access_token = " + jsonObject.get("access_token"))
+                        val token = jsonObject.get("access_token").toString()
+                        sessionManager.saveAuthToken(String.format("Bearer %s", token))
+                    }
+                }
             }
         }
-
-        // TODO 20230208 要做一分鐘自動更新一次的功能
-        // 要把最新一次座標&距離儲存起來，來當作最近一次更新的數據
-        // 利用 CountdownTimer
-        // 20230215 => finished
-
-        // TODO 20230208 為搜尋頁面，撈全台縣市的資料回來
-        // 也需要每分鐘更新一次資料
-        // 利用 CountdownTimer
-
-        // TODO 20230208 列表顯示，另開一個Activity
-        // 把當前有的資料都線顯示在card view中
-        // 再根據使用者滑到底部來決定增加搜尋的距離顯示
-        // 跟地圖模式的live data分開
-        // 也需要每分鐘更新一次資料(?)
     }
 
     fun getAllCityStationInfo() {
         if (NetworkChecker.checkConnectivity(getApplication())) {
             viewModelScope.launch {
+                repeat(3) {
+                }
 //            progress.postValue(Event(true))
                 val stationInfo = allCities.map { city ->
-                    async { repository.getStationInfoByCity(city) }
+                    async {
+                        var result = StationInfo()
+                        val response = repository.getStationInfoByCity(city)
+                        if (response.isSuccessful){
+                            response.body()?.let {
+                                result = it
+                            }
+                        }
+                        result
+                    }
                 }.awaitAll()
                 Log.d(TAG,"[getAllCityStationInfo] [postValue]");
                 allCityStationInfo.postValue(stationInfo)
 //            progress.postValue(Event(false))
             }
+
         }
     }
 
@@ -88,7 +104,16 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
             viewModelScope.launch {
 //            progress.postValue(Event(true))
                 val availabilityInfo = allCities.map { city ->
-                    async { repository.getAvailabilityByCity(city) }
+                    async {
+                        var result = AvailabilityInfo()
+                        val response = repository.getAvailabilityByCity(city)
+                        if (response.isSuccessful){
+                            response.body()?.let {
+                                result = it
+                            }
+                        }
+                        result
+                    }
                 }.awaitAll()
                 Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
                 allCityAvailabilityInfo.postValue(availabilityInfo)
@@ -107,12 +132,12 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
                     else -> null
                 }
 
-                stationInfo.postValue(
-                    repository.getStationInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
-                    )
-                )
+                val response = repository.getStationInfoNearBy("nearby($latitude, $longitude, $distance)", queryServiceType)
+                if (response.isSuccessful) {
+                    response.body()?.let {
+                        stationInfo.postValue(it)
+                    }
+                }
             }
         }
     }
@@ -128,19 +153,27 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
                 }
 
                 if (!refresh) {
-                    availabilityInfo.postValue(
-                        repository.getAvailabilityInfoNearBy(
-                            "nearby($latitude, $longitude, $distance)",
-                            queryServiceType
-                        )
+                    val response = repository.getAvailabilityInfoNearBy(
+                        "nearby($latitude, $longitude, $distance)",
+                        queryServiceType
                     )
+
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            availabilityInfo.postValue(it)
+                        }
+                    }
                 } else {
-                    refreshAvailability.postValue(
-                        repository.getAvailabilityInfoNearBy(
-                            "nearby($latitude, $longitude, $distance)",
-                            queryServiceType
-                        )
+                    val response = repository.getAvailabilityInfoNearBy(
+                        "nearby($latitude, $longitude, $distance)",
+                        queryServiceType
                     )
+
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            refreshAvailability.postValue(it)
+                        }
+                    }
                 }
             }
         }

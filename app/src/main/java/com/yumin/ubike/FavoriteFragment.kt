@@ -13,6 +13,7 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.navigation.fragment.findNavController
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
@@ -79,7 +80,7 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
         favoriteBinding.imageButton.setOnClickListener{
             // popup
             activity?.let {
-                it.supportFragmentManager.popBackStack()
+                findNavController().popBackStack()
             }
         }
     }
@@ -142,7 +143,7 @@ class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
             Log.d(TAG,"[onItemClick] stationName = "+item.stationName+" ,uid = "+item.stationUID)
             Log.d(TAG,"[onItemClick] availabilityInfoItem uid = "+availabilityInfoItem.StationUID);
             Log.d(TAG,"[onItemClick] availabilityInfoItem rent = "+availabilityInfoItem.AvailableRentBikes+", return = "+availabilityInfoItem.AvailableReturnBikes)
-            parentFragmentManager.popBackStack()
+            findNavController().popBackStack()
             mapViewModel.setSelectSearchStationUid(item,availabilityInfoItem)
         }
     }

@@ -17,6 +17,7 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.navigation.fragment.findNavController
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentSearchBinding
@@ -78,7 +79,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
         super.onViewCreated(view, savedInstanceState)
         fragmentSearchBinding.imageButton.setOnClickListener {
             activity?.let {
-                it.supportFragmentManager.popBackStack()
+                findNavController().popBackStack()
             }
         }
 
@@ -243,7 +244,7 @@ class SearchFragment : Fragment(), StationListAdapter.OnClickListener {
                 TAG,
                 "[onItemClick] availabilityInfoItem rent = " + availabilityInfoItem.AvailableRentBikes + ", return = " + availabilityInfoItem.AvailableReturnBikes
             )
-            parentFragmentManager.popBackStack()
+            findNavController().popBackStack()
             mapViewModel.setSelectSearchStationUid(stationInfoItem, availabilityInfoItem)
         }
     }

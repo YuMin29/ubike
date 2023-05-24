@@ -26,6 +26,7 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -117,6 +118,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         }
         context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
         sessionManager = SessionManager(requireNotNull(context))
+        fragmentMapBinding.mapGroup.visibility = View.VISIBLE
         return fragmentMapBinding.root
     }
 
@@ -169,21 +171,22 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             // switch to favorite fragment
             mapViewModel.getAllCityStationInfo()
             mapViewModel.getAllCityAvailabilityInfo()
-            (activity as MainActivity).replaceFavoriteFragment()
+            findNavController().navigate(R.id.action_map_to_favorite)
         }
 
         fragmentMapBinding.stationInfoListView.setOnClickListener {
-            val bundle = Bundle()
-            bundle.putDouble("longitude", currentLatLng.longitude)
-            bundle.putDouble("latitude", currentLatLng.latitude)
-            bundle.putInt("distance", zoomDistance.toInt())
-            bundle.putParcelable("location", myGoogleMap.myLocation)
-            bundle.putInt("type", ubikeType)
-            (activity as MainActivity).replaceStationListFragment(bundle)
+            val bundle = Bundle().apply {
+                putDouble("longitude", currentLatLng.longitude)
+                putDouble("latitude", currentLatLng.latitude)
+                putInt("distance", zoomDistance.toInt())
+                putParcelable("location", myGoogleMap.myLocation)
+                putInt("type", ubikeType)
+            }
+            findNavController().navigate(R.id.action_map_to_list, bundle)
         }
 
         fragmentMapBinding.searchView.setOnClickListener {
-            (activity as MainActivity).replaceSearchFragment()
+            findNavController().navigate(R.id.action_map_to_search)
         }
     }
 

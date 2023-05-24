@@ -6,6 +6,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <TextView
+        android:id="@+id/locationOff"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="請允許位置權限"
+        android:gravity="center"
+        app:drawableTopCompat="@drawable/ic_baseline_location_off_48"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/mapGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:constraint_referenced_ids="map,searchView,favorite_station_info,ubike_all,
+                            ubike_1_0,ubike_2_0,station_info_list_view,anchor_point"/>
+
     <fragment
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"

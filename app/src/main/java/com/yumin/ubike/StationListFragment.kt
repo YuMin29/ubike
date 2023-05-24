@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.model.LatLng
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
@@ -112,7 +113,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         fragmentStationListBinding.imageButton.setOnClickListener{
             // popup
             activity?.let {
-                it.supportFragmentManager.popBackStack()
+                findNavController().popBackStack()
             }
         }
     }
@@ -177,7 +178,7 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     ) {
         if (item != null) {
             Log.d(TAG,"[onItemClick] ITEM = "+item.stationName)
-            parentFragmentManager.popBackStack()
+            findNavController().popBackStack()
             viewModel.setSelectStationUid(item.stationUID)
         }
     }

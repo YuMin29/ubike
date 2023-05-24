@@ -1,9 +1,12 @@
 package com.yumin.ubike
 
+import android.Manifest
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -20,6 +23,8 @@ import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.RelativeLayout
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.WindowCompat
@@ -53,8 +58,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private lateinit var mapView: View
     private lateinit var myGoogleMap: GoogleMap
     private val mapViewModel: MapViewModel by activityViewModels {
-        val activity = requireNotNull(this.activity)
-        val repository = RemoteRepository(SessionManager(activity))
+        val repository = RemoteRepository(SessionManager(requireActivity()))
         MyViewModelFactory(repository)
     }
     private var isDrawCurrentPosition: Boolean = false
@@ -91,19 +95,78 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         savedInstanceState: Bundle?
     ): View? {
         Log.d(TAG, "[onCreateView]")
-
+        Log.d(TAG, "[onCreateView]")
         fragmentMapBinding = FragmentMapBinding.inflate(inflater)
-
         // setup status bar color to transparent
-        activity?.let {
-            WindowCompat.setDecorFitsSystemWindows(it.window, false)
-            it.window.statusBarColor = it.getColor(R.color.transparent)
-        }
+        WindowCompat.setDecorFitsSystemWindows(requireActivity().window, false)
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.transparent)
+        return fragmentMapBinding.root
+    }
 
-        locationManager = activity?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+//        setupMap()
+//        setupUI()
+        checkPermission()
+    }
+
+    private fun checkPermission() {
+        if ((ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED)) {
+            requestLocationPermission();
+        } else {
+            // permission granted
+            init()
+        }
+    }
+
+    private fun requestLocationPermission() {
+        if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            // show dialog to explain why this app need these permissions
+            showPermissionDialog()
+        } else {
+            // You can directly ask for the permission.
+            launchSinglePermission()
+        }
+    }
+
+    private fun showPermissionDialog() {
+        val builder = AlertDialog.Builder(requireContext()).apply {
+            setMessage(R.string.dialog_message).setTitle(R.string.dialog_title)
+            setPositiveButton(R.string.dialog_ok) { dialog, which ->
+                launchSinglePermission()
+            }
+        }
+        val dialog = builder.create()
+        dialog.show()
+    }
+
+    private fun launchSinglePermission() {
+        requestSinglePermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    private val requestSinglePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            // granted
+            init()
+        } else {
+            // show no permission error
+            Toast.makeText(requireContext(), getString(R.string.denied_location_permission), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun init() {
+        fragmentMapBinding.mapGroup.visibility = View.VISIBLE
+        fragmentMapBinding.locationOff.visibility = View.GONE
+        sessionManager = SessionManager(requireContext())
+        locationManager = requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
         //Get current location by network
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
+        setupMap()
+        setupUI()
+        setupReceiver()
+    }
 
+    private fun setupReceiver() {
         receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 Log.d(TAG, "[onReceive] intent action : " + intent?.action.toString())
@@ -112,20 +175,16 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                     isRefreshed = true
 
                 latestRefreshTime = Calendar.getInstance().time
-                mapViewModel.getAllCityStationInfo()
-                mapViewModel.getAllCityAvailabilityInfo()
+
+                context?.let {
+                    if (NetworkChecker.checkConnectivity(it)) {
+                        mapViewModel.getAllCityStationInfo()
+                        mapViewModel.getAllCityAvailabilityInfo()
+                    }
+                }
             }
         }
-        context?.registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
-        sessionManager = SessionManager(requireNotNull(context))
-        fragmentMapBinding.mapGroup.visibility = View.VISIBLE
-        return fragmentMapBinding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        setupMap()
-        setupUI()
+        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
     private fun setupMap() {
@@ -169,8 +228,10 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
         fragmentMapBinding.favoriteStationInfo.setOnClickListener {
             // switch to favorite fragment
-            mapViewModel.getAllCityStationInfo()
-            mapViewModel.getAllCityAvailabilityInfo()
+            if (NetworkChecker.checkConnectivity(requireContext())) {
+                mapViewModel.getAllCityStationInfo()
+                mapViewModel.getAllCityAvailabilityInfo()
+            }
             findNavController().navigate(R.id.action_map_to_favorite)
         }
 

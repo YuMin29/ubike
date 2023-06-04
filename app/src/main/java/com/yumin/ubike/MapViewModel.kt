@@ -20,35 +20,13 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
     private val allCities = arrayListOf("Taichung","Hsinchu","MiaoliCounty","NewTaipei","PingtungCounty",
         "KinmenCounty","Taoyuan","Taipei","Kaohsiung","Tainan","Chiayi","HsinchuCounty")
 
-//    var progress = MutableLiveData<Event<Boolean>>()
     var selectStationUid = MutableLiveData<Event<String>>()
     var searchStationUid = MutableLiveData<Event<Pair<StationInfoItem,AvailabilityInfoItem>>>()
     var stationInfo = MutableLiveData<StationInfo>()
     var availabilityInfo = MutableLiveData<AvailabilityInfo>()
     var refreshAvailability = MutableLiveData<AvailabilityInfo>()
-    var stationWholeInfo: MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>> =
-        MediatorLiveData<Pair<StationInfo?, AvailabilityInfo?>>().apply {
-            addSource(stationInfo) {
-                value = Pair(it, availabilityInfo.value)
-            }
-            addSource(availabilityInfo) {
-                value = Pair(stationInfo.value, it)
-            }
-        }
-
-    var allCityStationInfo = MutableLiveData<List<StationInfo>>()
-    var allCityAvailabilityInfo = MutableLiveData<List<AvailabilityInfo>>()
-
-    var allInfo:MediatorLiveData<Event<Pair<List<StationInfo>?,List<AvailabilityInfo>?>>> =
-        MediatorLiveData<Event<Pair<List<StationInfo>?,List<AvailabilityInfo>?>>>().apply {
-            addSource(allCityStationInfo){
-                value = Event(Pair(it, allCityAvailabilityInfo.value))
-            }
-            addSource(allCityAvailabilityInfo){
-                value = Event(Pair(allCityStationInfo.value,it))
-            }
-    }
-
+    var allCityStationInfo = MutableLiveData<Event<List<StationInfo>>>()
+    var allCityAvailabilityInfo = MutableLiveData<Event<List<AvailabilityInfo>>>()
     var sessionManager = SessionManager(getApplication())
 
     init {
@@ -68,6 +46,8 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
                         val token = jsonObject.get("access_token").toString()
                         sessionManager.saveAuthToken(String.format("Bearer %s", token))
                     }
+                } else {
+                    Log.d(TAG,"[getToken] fail type, "+response.code())
                 }
             }
         }
@@ -75,54 +55,55 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
 
     fun getAllCityStationInfo() {
         if (NetworkChecker.checkConnectivity(getApplication())) {
-            viewModelScope.launch {
-                repeat(3) {
-                }
-//            progress.postValue(Event(true))
-                val stationInfo = allCities.map { city ->
+            viewModelScope.launch(Dispatchers.IO) {
+                val transform1 : (String) -> Deferred<StationInfo> = { cityName ->
                     async {
                         var result = StationInfo()
-                        val response = repository.getStationInfoByCity(city)
+                        val response = repository.getStationInfoByCity(cityName)
                         if (response.isSuccessful){
                             response.body()?.let {
                                 result = it
                             }
+                        } else {
+                            Log.d(TAG,"[getAllCityStationInfo] fail type, "+response.code())
                         }
                         result
                     }
-                }.awaitAll()
-                Log.d(TAG,"[getAllCityStationInfo] [postValue]");
-                allCityStationInfo.postValue(stationInfo)
-//            progress.postValue(Event(false))
-            }
+                }
+                val stationInfo =  allCities.map(transform1).awaitAll()
 
+                Log.d(TAG,"[getAllCityStationInfo] [postValue]");
+                allCityStationInfo.postValue(Event(stationInfo))
+            }
         }
     }
 
     fun getAllCityAvailabilityInfo() {
         if (NetworkChecker.checkConnectivity(getApplication())) {
-            viewModelScope.launch {
-//            progress.postValue(Event(true))
-                val availabilityInfo = allCities.map { city ->
+            viewModelScope.launch(Dispatchers.IO) {
+                val transform : (String) -> Deferred<AvailabilityInfo> = { cityName ->
                     async {
                         var result = AvailabilityInfo()
-                        val response = repository.getAvailabilityByCity(city)
+                        val response = repository.getAvailabilityByCity(cityName)
                         if (response.isSuccessful){
                             response.body()?.let {
                                 result = it
                             }
+                        } else {
+                            Log.d(TAG,"[getAllCityAvailabilityInfo] fail type, "+response.code())
                         }
                         result
                     }
-                }.awaitAll()
+                }
+                val availabilityInfo = allCities.map(transform).awaitAll()
                 Log.d(TAG,"[getAllCityAvailabilityInfo] [postValue]");
-                allCityAvailabilityInfo.postValue(availabilityInfo)
-//            progress.postValue(Event(false))
+                allCityAvailabilityInfo.postValue(Event(availabilityInfo))
             }
         }
     }
 
     fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
+        Log.d(TAG,"[getStationInfoNearBy] latitude = $latitude , longitude = $longitude ,type = $type")
         if (NetworkChecker.checkConnectivity(getApplication())) {
             viewModelScope.launch(Dispatchers.IO) {
 
@@ -137,12 +118,15 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
                     response.body()?.let {
                         stationInfo.postValue(it)
                     }
+                } else {
+                    Log.d(TAG,"[getStationInfoNearBy] fail type, "+response.code())
                 }
             }
         }
     }
 
     fun getAvailabilityNearBy(latitude: Double, longitude: Double, distance: Int, type: Int, refresh: Boolean) {
+        Log.d(TAG,"[getAvailabilityNearBy] latitude = $latitude , longitude = $longitude")
         if (NetworkChecker.checkConnectivity(getApplication())) {
             viewModelScope.launch(Dispatchers.IO) {
 
@@ -152,28 +136,20 @@ class MapViewModel(private val repository: RemoteRepository, application:Applica
                     else -> null
                 }
 
-                if (!refresh) {
-                    val response = repository.getAvailabilityInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
-                    )
+                val response = repository.getAvailabilityInfoNearBy(
+                    "nearby($latitude, $longitude, $distance)",
+                    queryServiceType
+                )
 
-                    if (response.isSuccessful) {
-                        response.body()?.let {
+                if (response.isSuccessful) {
+                    response.body()?.let {
+                        if (!refresh)
                             availabilityInfo.postValue(it)
-                        }
+                        else
+                            refreshAvailability.postValue(it)
                     }
                 } else {
-                    val response = repository.getAvailabilityInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
-                    )
-
-                    if (response.isSuccessful) {
-                        response.body()?.let {
-                            refreshAvailability.postValue(it)
-                        }
-                    }
+                    Log.d(TAG,"[getAvailabilityNearBy] fail type, "+response.code())
                 }
             }
         }

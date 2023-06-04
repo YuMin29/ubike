@@ -27,9 +27,10 @@ class SessionManager(context: Context) {
      * Function to save auth token
      */
     fun saveAuthToken(token: String) {
-        val editor = sharedPreferences.edit()
-        editor.putString(USER_TOKEN, token)
-        editor.apply()
+        sharedPreferences.edit().apply{
+            putString(USER_TOKEN, token)
+            apply()
+        }
     }
 
     /**
@@ -57,26 +58,23 @@ class SessionManager(context: Context) {
     }
 
     private fun saveFavoriteList(){
-        val editor = sharedPreferences.edit()
         val gson = Gson()
         val json = gson.toJson(favoriteList)
         Log.d(TAG, "[saveFavoriteList] json = $json")
-        editor.putString(FAVORITE_LIST,json)
-        editor.apply()
+        sharedPreferences.edit().apply {
+            putString(FAVORITE_LIST,json)
+            apply()
+        }
     }
 
     fun fetchFavoriteList(): ArrayList<String> {
-        val data = sharedPreferences.getString(FAVORITE_LIST,null)
+        favoriteList = ArrayList()
         val gson = Gson()
         val type = object : TypeToken<ArrayList<String>>(){}.type
-
-        if (data != null) {
-            favoriteList = gson.fromJson(data,type)
+        sharedPreferences.getString(FAVORITE_LIST,null)?.let {
+            favoriteList = gson.fromJson(it,type)
             Log.d(TAG, "[fetchFavoriteList] favoriteList = ${favoriteList?.size}")
         }
-        if (favoriteList == null)
-            favoriteList = ArrayList<String>()
-
         return favoriteList
     }
 }

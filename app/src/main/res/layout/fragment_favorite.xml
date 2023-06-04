@@ -6,7 +6,7 @@
     android:layout_height="match_parent">
 
     <ProgressBar
-        android:id="@+id/progressBar3"
+        android:id="@+id/progressBar"
         style="?android:attr/progressBarStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -16,7 +16,7 @@
         android:id="@+id/view"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="@color/secondary_orange">
+        android:background="@color/pink">
 
         <ImageButton
             android:id="@+id/imageButton"

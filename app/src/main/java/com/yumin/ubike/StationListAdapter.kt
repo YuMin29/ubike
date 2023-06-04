@@ -1,6 +1,5 @@
 package com.yumin.ubike
 
-import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.location.LocationManager
@@ -15,23 +14,32 @@ import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.LayoutStationItemBinding
 
-class StationListAdapter(private val clickListener: OnClickListener,
+class StationListAdapter(
     private var stationList: MutableList<StationInfoItem>,
     private var availabilityList: MutableList<AvailabilityInfoItem>,
-//    private val context: Context,
     private val sessionManager: SessionManager
 ) : RecyclerView.Adapter<BaseViewHolder>() {
 
     private val TAG = "[StationListAdapter]"
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BaseViewHolder {
-        val itemLayoutBinding =
-            LayoutStationItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ItemViewHolder(itemLayoutBinding, clickListener)
+        val itemLayoutBinding = LayoutStationItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ItemViewHolder(itemLayoutBinding)
     }
 
     override fun onBindViewHolder(holder: BaseViewHolder, position: Int) {
         holder.onBind(position)
+
+        holder.itemView.apply {
+            val availabilityInfoItem =  availabilityList.find { it.StationUID == stationList[position].stationUID }
+            availabilityInfoItem?.let {
+                setOnClickListener{
+                    onItemClickListener?.let {
+                        it(holder.itemView,stationList[position],availabilityInfoItem)
+                    }
+                }
+            }
+        }
     }
 
     override fun getItemCount(): Int {
@@ -50,10 +58,32 @@ class StationListAdapter(private val clickListener: OnClickListener,
         notifyDataSetChanged()
     }
 
-    inner class ItemViewHolder(
-        private val binding: LayoutStationItemBinding,
-        private val listener: OnClickListener
-    ) : BaseViewHolder(binding.root), View.OnClickListener {
+    private var availableInfoString: (rent: Int, returnN:Int) -> String? = { rentN, returnN ->
+        rentN.toString() + "可借 | " + returnN.toString() + "可還**"
+    }
+
+    private var onItemClickListener: ((View,StationInfoItem,AvailabilityInfoItem) -> Unit)? = null
+    private var onShareClick : ((Intent) -> Unit)? = null
+    private var onNavigationClick : ((Intent) -> Unit)? = null
+    private var onFavoriteClick : ((String,Boolean) -> Unit)? = null
+
+    fun setOnItemClickListener(listener: (View,StationInfoItem,AvailabilityInfoItem) -> Unit) {
+        onItemClickListener = listener
+    }
+
+    fun setOnShareClickListener(listener: (Intent) -> Unit) {
+        onShareClick = listener
+    }
+
+    fun setOnNavigationClickListener(listener: (Intent) -> Unit) {
+        onNavigationClick = listener
+    }
+
+    fun setOnFavoriteClickListener(listener: (String,Boolean) -> Unit) {
+        onFavoriteClick = listener
+    }
+
+    inner class ItemViewHolder(private val binding: LayoutStationItemBinding) : BaseViewHolder(binding.root) {
 
         private var isFavorite = false
 
@@ -70,22 +100,23 @@ class StationListAdapter(private val clickListener: OnClickListener,
                 )
             )
 
-            binding.availableStatus.text = getAvailableInfo(stationInfoItem.stationUID)
-            itemView.setOnClickListener(this)
+            binding.availableStatus.text = availabilityList.find { it.StationUID == stationInfoItem.stationUID }?.let {
+                availableInfoString(it.AvailableRentBikes,it.AvailableReturnBikes)
+            }
 
             binding.share.setOnClickListener {
                 val sendIntent: Intent = Intent().apply {
-                    val mapUri =
-                        "https://www.google.com/maps/dir/?api=1&destination=" + stationInfoItem.stationPosition.positionLat + "," + stationInfoItem.stationPosition.positionLon
+                    val availableInfoString = availabilityList.find { it.StationUID == stationInfoItem.stationUID }?.
+                    let { availableInfoString(it.AvailableRentBikes,it.AvailableReturnBikes) }
+
+                    val mapUri = "https://www.google.com/maps/dir/?api=1&destination=" + stationInfoItem.stationPosition.positionLat + "," + stationInfoItem.stationPosition.positionLon
                     action = Intent.ACTION_SEND
-                    putExtra(
-                        Intent.EXTRA_TEXT,
-                        stationNameSplit[1] + "有" + getAvailableInfo(stationInfoItem.stationUID)
-                                + "，地點在$mapUri"
-                    )
+                    putExtra(Intent.EXTRA_TEXT, stationNameSplit[1] + "有" + availableInfoString + "，地點在$mapUri")
                     type = "text/plain"
                 }
-                listener.onShareClick(sendIntent)
+                onShareClick?.let {
+                    it(sendIntent)
+                }
             }
 
             binding.navigate.setOnClickListener {
@@ -93,7 +124,9 @@ class StationListAdapter(private val clickListener: OnClickListener,
                     Uri.parse("google.navigation:q=" + stationInfoItem.stationPosition.positionLat + "," + stationInfoItem.stationPosition.positionLon + "&mode=w")
                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                 mapIntent.setPackage("com.google.android.apps.maps")
-                listener.onNavigationClick(mapIntent)
+                onNavigationClick?.let {
+                    it(mapIntent)
+                }
             }
 
             if (sessionManager.fetchFavoriteList().contains(stationInfoItem.stationUID)) {
@@ -117,15 +150,9 @@ class StationListAdapter(private val clickListener: OnClickListener,
                     binding.star.setImageResource(R.drawable.ic_baseline_favorite_24)
                     sessionManager.addToFavoriteList(stationInfoItem.stationUID)
                 }
-                listener.onFavoriteClick(stationInfoItem.stationUID,isFavorite)
-            }
-        }
-
-        override fun onClick(v: View) {
-            getAvailableInfoItem(stationList[position].stationUID)?.let {
-                listener.onItemClick(v, stationList[position],
-                    it
-                )
+                onFavoriteClick?.let{
+                    it(stationInfoItem.stationUID,isFavorite)
+                }
             }
         }
     }
@@ -143,35 +170,4 @@ class StationListAdapter(private val clickListener: OnClickListener,
             distance.toInt().toString() + "公尺"
     }
 
-    fun getAvailableInfo(uId: String): String {
-        availabilityList.forEach { availabilityInfoItem ->
-            if (availabilityInfoItem.StationUID == uId) {
-                return availabilityInfoItem.AvailableRentBikes.toString() + "可借 | " +
-                        availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
-            }
-        }
-        return ""
-    }
-
-    fun getAvailableInfoItem(uId: String): AvailabilityInfoItem? {
-        availabilityList.forEach { availabilityInfoItem ->
-            if (availabilityInfoItem.StationUID == uId)
-                return availabilityInfoItem
-        }
-        return null
-    }
-
-    interface OnClickListener {
-        fun onItemClick(
-            view: View,
-            item: StationInfoItem,
-            availabilityInfoItem: AvailabilityInfoItem
-        )
-
-        fun onShareClick(intent: Intent)
-
-        fun onNavigationClick(intent: Intent)
-
-        fun onFavoriteClick(uId: String, add: Boolean)
-    }
 }

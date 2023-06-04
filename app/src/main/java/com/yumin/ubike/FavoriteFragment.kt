@@ -21,139 +21,150 @@ import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentFavoriteBinding
 import com.yumin.ubike.repository.RemoteRepository
 
-class FavoriteFragment:Fragment(),StationListAdapter.OnClickListener {
+class FavoriteFragment : Fragment() {
     private val TAG = "[FavoriteFragment]"
-    private lateinit var favoriteBinding:FragmentFavoriteBinding
-    private lateinit var sessionManager : SessionManager
+    private lateinit var fragmentFavoriteBinding: FragmentFavoriteBinding
+    private lateinit var sessionManager: SessionManager
     private lateinit var stationListAdapter: StationListAdapter
-    private val mapViewModel: MapViewModel by activityViewModels{
+    private val mapViewModel: MapViewModel by activityViewModels {
         val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository,requireActivity().application)
+        MyViewModelFactory(repository, requireActivity().application)
     }
-    private lateinit var favoriteList : ArrayList<String>
-    private lateinit var stationInfoList : MutableList<StationInfoItem>
-    private lateinit var availabilityInfoList : MutableList<AvailabilityInfoItem>
-    private lateinit var pairInfo : Pair<List<StationInfo>?,List<AvailabilityInfo>?>
-    private lateinit var receiver: BroadcastReceiver
+    private lateinit var favoriteStationList: ArrayList<String>
+    private lateinit var broadcastReceiver: BroadcastReceiver
+    private var allStationInfo = listOf<StationInfo>()
+    private var allAvailabilityInfo = listOf<AvailabilityInfo>()
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        favoriteBinding = FragmentFavoriteBinding.inflate(inflater)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        fragmentFavoriteBinding = FragmentFavoriteBinding.inflate(inflater)
+        return fragmentFavoriteBinding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        mapViewModel.getAllCityAvailabilityInfo()
+        mapViewModel.getAllCityStationInfo()
 
         WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
-        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.secondary_orange)
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
+
         sessionManager = SessionManager(requireContext())
 
         // get favorite station info
-        favoriteList = sessionManager.fetchFavoriteList()
-        Log.d(TAG,"favoriteList = "+favoriteList.toString())
+        favoriteStationList = sessionManager.fetchFavoriteList()
+        Log.d(TAG, "favoriteList = $favoriteStationList")
 
-        receiver = object : BroadcastReceiver(){
+        setupBroadcastReceiver()
+
+        setupRecyclerView()
+
+        fragmentFavoriteBinding.imageButton.setOnClickListener {
+            findNavController().popBackStack()
+        }
+
+        // view model get all station info
+        // find station info and show on the recycler view
+        observeViewModel()
+    }
+
+    private fun setupRecyclerView() {
+        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
+            setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
+                stationInfoItem?.let {
+                    Log.d(TAG, "[onItemClick] stationName = " + it.stationName + " ,uid = " + it.stationUID +
+                            "availabilityInfoItem uid = " + availabilityInfoItem.StationUID +
+                            ", rent = " + availabilityInfoItem.AvailableRentBikes +
+                            ", return = " + availabilityInfoItem.AvailableReturnBikes
+                    )
+                    findNavController().popBackStack()
+                    mapViewModel.setSelectSearchStationUid(it, availabilityInfoItem)
+                }
+            }
+
+            setOnShareClickListener { intent ->
+                intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
+                val shareIntent = Intent.createChooser(intent, null)
+                startActivity(shareIntent)
+            }
+
+            setOnNavigationClickListener { intent ->
+                startActivity(intent)
+            }
+
+            setOnFavoriteClickListener { s, b ->
+                // update list
+                favoriteStationList = sessionManager.fetchFavoriteList()
+                Log.d(TAG, "[onFavoriteClick] favoriteList = $favoriteStationList")
+                getFavoriteStationInfo()
+            }
+        }
+
+        fragmentFavoriteBinding.favoriteRecyclerView.adapter = stationListAdapter
+    }
+
+    private fun setupBroadcastReceiver() {
+        broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 Log.d(TAG, "[onReceive] intent action : " + intent?.action.toString())
                 mapViewModel.getAllCityAvailabilityInfo()
                 mapViewModel.getAllCityStationInfo()
             }
         }
-        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
-        // view model get all station info
-        // find station info and show on the recycler view
-        observeViewModel()
-
-        return favoriteBinding.root
+        requireContext().registerReceiver(broadcastReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        // listview
-        stationListAdapter = StationListAdapter(this,mutableListOf(), mutableListOf(), sessionManager)
-        favoriteBinding.favoriteRecyclerView.adapter = stationListAdapter
-        favoriteBinding.imageButton.setOnClickListener{
-            // popup
-            findNavController().popBackStack()
-        }
-    }
-
-    private fun observeViewModel(){
-        mapViewModel.allInfo.observe(viewLifecycleOwner, Observer {
-            if (favoriteList.isEmpty()) {
-                favoriteBinding.progressBar3.visibility = View.INVISIBLE
-                return@Observer
+    private fun observeViewModel() {
+        mapViewModel.allCityStationInfo.observe(viewLifecycleOwner, Observer { event ->
+            event.getContentIfNotHandled()?.let {
+                allStationInfo = it
+                Log.d(TAG, "[observeViewModel] getAllStationInfo SIZE = " + allStationInfo.size)
+                hideProgressBar()
+                getFavoriteStationInfo()
             }
+        })
 
-            it.getContentIfNotHandled()?.apply {
-                pairInfo = this
-                getFavoriteStationInfo(pairInfo)
-                favoriteBinding.progressBar3.visibility = View.INVISIBLE
+        mapViewModel.allCityAvailabilityInfo.observe(viewLifecycleOwner, Observer { event ->
+            event.getContentIfNotHandled()?.let {
+                allAvailabilityInfo = it
+                Log.d(TAG, "[observeViewModel] gwtAllAvailabilityInfo SIZE = " + allAvailabilityInfo.size)
+                hideProgressBar()
+                getFavoriteStationInfo()
             }
         })
     }
 
-    private fun getFavoriteStationInfo(source : Pair<List<StationInfo>?,List<AvailabilityInfo>?>){
+    private fun hideProgressBar() {
+        fragmentFavoriteBinding.progressBar.visibility = View.INVISIBLE
+    }
+
+    private fun getFavoriteStationInfo() {
         // if favorite list not empty ， find the station info & update adapter data
-        stationInfoList = mutableListOf<StationInfoItem>()
-        availabilityInfoList = mutableListOf<AvailabilityInfoItem>()
+        var stationInfoList = mutableListOf<StationInfoItem>()
+        var availabilityInfoList = mutableListOf<AvailabilityInfoItem>()
 
-        favoriteList.forEach {
-            source.first?.apply {
-                for (list in this) {
-                    for (item in list) {
-                        if (item.stationUID == it)
-                            stationInfoList.add(item)
-                    }
-                }
-            }
-
-            source.second?.apply {
-                for (list in this) {
-                    for (item in list) {
-                        if (item.StationUID == it)
-                            availabilityInfoList.add(item)
-                    }
-                }
-            }
+        allStationInfo.forEach {
+            stationInfoList.addAll(it)
         }
-        // update
+
+        stationInfoList = stationInfoList.filter { stationInfoItem ->
+            favoriteStationList.contains(stationInfoItem.stationUID)
+        }.toMutableList()
+
+        allAvailabilityInfo.forEach {
+            availabilityInfoList.addAll(it)
+        }
+
+        availabilityInfoList = availabilityInfoList.filter { availabilityInfo ->
+            favoriteStationList.contains(availabilityInfo.StationUID)
+        }.toMutableList()
+
         stationListAdapter.updateStationList(stationInfoList)
         stationListAdapter.updateAvailabilityList(availabilityInfoList)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        requireContext().unregisterReceiver(receiver)
-    }
-
-    override fun onItemClick(
-        view: View,
-        item: StationInfoItem,
-        availabilityInfoItem: AvailabilityInfoItem
-    ) {
-        if (item != null) {
-            Log.d(TAG,"[onItemClick] stationName = "+item.stationName+" ,uid = "+item.stationUID)
-            Log.d(TAG,"[onItemClick] availabilityInfoItem uid = "+availabilityInfoItem.StationUID);
-            Log.d(TAG,"[onItemClick] availabilityInfoItem rent = "+availabilityInfoItem.AvailableRentBikes+", return = "+availabilityInfoItem.AvailableReturnBikes)
-            findNavController().popBackStack()
-            mapViewModel.setSelectSearchStationUid(item,availabilityInfoItem)
-        }
-    }
-
-    override fun onShareClick(intent: Intent) {
-        intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
-        val shareIntent = Intent.createChooser(intent, null)
-        startActivity(shareIntent)
-    }
-
-    override fun onNavigationClick(intent: Intent) {
-        startActivity(intent)
-    }
-
-    override fun onFavoriteClick(uId: String, add: Boolean) {
-        // update list
-        favoriteList = sessionManager.fetchFavoriteList()
-        Log.d(TAG,"[onFavoriteClick] favoriteList = "+favoriteList.toString())
-        getFavoriteStationInfo(pairInfo)
+        requireContext().unregisterReceiver(broadcastReceiver)
     }
 }

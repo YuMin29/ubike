@@ -16,31 +16,25 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.model.LatLng
-import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentStationListBinding
 import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
-import kotlin.Comparator
 
-class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
+class StationListFragment : Fragment(){
+    private val TAG = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
     private val viewModel: MapViewModel by activityViewModels{
         val repository = RemoteRepository(SessionManager(requireActivity()))
         MyViewModelFactory(repository,requireActivity().application)
     }
-    private lateinit var remoteRepository: RemoteRepository
     private lateinit var currentLatLng: LatLng
-    private var initialDistance: Int = 2000
+    private var initialDistance: Int = 1000
     private var type: Int = 0
-    private lateinit var receiver: BroadcastReceiver
+    private lateinit var broadcastReceiver: BroadcastReceiver
     lateinit var sessionManager: SessionManager
     lateinit var currentLocation:Location
-
-    companion object{
-        private const val TAG: String = "[StationListFragment]"
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,43 +42,45 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
         savedInstanceState: Bundle?
     ): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
+        return fragmentStationListBinding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
         requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
         sessionManager = SessionManager(requireContext())
 
-        val bundle = arguments
-        if (bundle != null) {
-            currentLatLng = LatLng(bundle.getDouble("latitude"), bundle.getDouble("longitude"))
+        arguments?.let { bundle ->
+            currentLatLng = LatLng(bundle.getDouble(MapFragment.KEY_LATITUDE), bundle.getDouble(MapFragment.KEY_LONGITUDE))
             currentLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
                 latitude = currentLatLng.latitude
                 longitude = currentLatLng.longitude
             }
             Log.d(TAG, "[onCreateView] currentLatLng = $currentLatLng")
-            type = bundle.getInt("type")
-
+            type = bundle.getInt(MapFragment.KEY_UBIKE_TYPE)
             Log.d(TAG, "[extras] longitude = ${bundle.getDouble("longitude")} ,latitude = ${bundle.getDouble("latitude")}" + ",distance = $initialDistance")
-        } else {
-            // means don't have any lating data
-            Log.d(TAG, "[onCreateView] don't have any lating data")
         }
+
         getCurrentStationInfo()
+
         observeViewModel()
 
-        receiver = object : BroadcastReceiver(){
+        setupBroadcastReceiver()
+
+        initView()
+    }
+
+    private fun setupBroadcastReceiver() {
+        broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 Log.d(TAG, "[onReceive] intent action : " + intent?.action.toString())
                 getCurrentStationInfo()
             }
         }
 
-        requireContext().registerReceiver(receiver, IntentFilter(Intent.ACTION_TIME_TICK))
-        return fragmentStationListBinding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        initView()
+        requireContext().registerReceiver(broadcastReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
     private fun getCurrentStationInfo() {
@@ -97,14 +93,28 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
     }
 
     private fun initView() {
-        stationListAdapter = StationListAdapter(
-            this,
-            mutableListOf(), mutableListOf(), sessionManager
-        )
+        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
+            setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
+                stationInfoItem?.let {
+                    Log.d(TAG,"[onItemClick] ITEM = "+it.stationName)
+                    findNavController().popBackStack()
+                    viewModel.setSelectStationUid(it.stationUID)
+                }
+            }
+
+            setOnShareClickListener { intent ->
+                intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+                val shareIntent = Intent.createChooser(intent, null)
+                startActivity(shareIntent)
+            }
+
+            setOnNavigationClickListener { intent ->
+                startActivity(intent)
+            }
+        }
         fragmentStationListBinding.stationListView.adapter = stationListAdapter
 
         fragmentStationListBinding.imageButton.setOnClickListener{
-            // popup
             findNavController().popBackStack()
         }
     }
@@ -116,77 +126,20 @@ class StationListFragment : Fragment(),StationListAdapter.OnClickListener{
      * 一剛開始加載此頁面以map 切換的經緯度+距離為主
      */
     private fun observeViewModel() {
-        viewModel.stationWholeInfo.observe(viewLifecycleOwner, androidx.lifecycle.Observer { it1 ->
-            Log.d(TAG, "[observeViewModel] first SIZE = " + it1.first?.size)
-            Log.d(TAG, "[observeViewModel] second SIZE = " + it1.second?.size)
-
-            if (it1.first?.size == it1.second?.size) {
-                // sort list
-                sortListByDistance(it1.first as ArrayList<StationInfoItem>)
-//                stationListAdapter.addItems(it1 as Pair<StationInfo, AvailabilityInfo>)
-                stationListAdapter.updateStationList(it1.first!!.toMutableList())
-                stationListAdapter.updateAvailabilityList(it1.second!!.toMutableList())
-            }
+        viewModel.stationInfo.observe(viewLifecycleOwner, androidx.lifecycle.Observer {
+            Log.d(TAG,"[observeViewModel] stationInfo SIZE = "+it.size)
+            SortUtils.sortListByDistance(it as ArrayList<StationInfoItem>)
+            stationListAdapter.updateStationList(it.toMutableList())
         })
-    }
 
-
-    private fun sortListByDistance(stationList: ArrayList<StationInfoItem>): ArrayList<StationInfoItem> {
-        val comparator = Comparator<StationInfoItem?> { item1, item2 ->
-            var distance1 = 0f
-            if (item1 != null) {
-                val location1 = Location(LocationManager.NETWORK_PROVIDER).apply {
-                    latitude = item1.stationPosition.positionLat
-                    longitude = item1.stationPosition.positionLon
-                }
-                distance1 = currentLocation.distanceTo(location1)
-            }
-
-            var distance2 = 0f
-            if (item2 != null) {
-                val location2 = Location(LocationManager.NETWORK_PROVIDER).apply {
-                    latitude = item2.stationPosition.positionLat
-                    longitude = item2.stationPosition.positionLon
-                }
-                distance2 = currentLocation.distanceTo(location2)
-            }
-
-//            Log.d(TAG, "distance1 : $distance1, distance2 : $distance2")
-//            Log.d(TAG, "o1 : ${item1?.stationName}, o2 : ${item2?.stationName}")
-            distance1.compareTo(distance2)
-        }
-        Collections.sort(stationList, comparator)
-        return stationList
+        viewModel.availabilityInfo.observe(viewLifecycleOwner, androidx.lifecycle.Observer {
+            Log.d(TAG,"[observeViewModel] availabilityInfo SIZE = "+it.size)
+            stationListAdapter.updateAvailabilityList(it.toMutableList())
+        })
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        requireContext().unregisterReceiver(receiver)
-    }
-
-    override fun onItemClick(
-        view: View,
-        item: StationInfoItem,
-        availabilityInfoItem: AvailabilityInfoItem
-    ) {
-        if (item != null) {
-            Log.d(TAG,"[onItemClick] ITEM = "+item.stationName)
-            findNavController().popBackStack()
-            viewModel.setSelectStationUid(item.stationUID)
-        }
-    }
-
-    override fun onShareClick(intent: Intent) {
-        intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
-        val shareIntent = Intent.createChooser(intent, null)
-        startActivity(shareIntent)
-    }
-
-    override fun onNavigationClick(intent: Intent) {
-        startActivity(intent)
-    }
-
-    override fun onFavoriteClick(uId: String, add: Boolean) {
-
+        requireContext().unregisterReceiver(broadcastReceiver)
     }
 }

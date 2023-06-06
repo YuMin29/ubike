@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -20,27 +21,24 @@ import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentStationListBinding
 import com.yumin.ubike.repository.RemoteRepository
 import java.util.*
+import androidx.lifecycle.Observer
 
-class StationListFragment : Fragment(){
+class StationListFragment : Fragment() {
     private val TAG = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
-    private val viewModel: MapViewModel by activityViewModels{
+    private val viewModel: MapViewModel by activityViewModels {
         val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository,requireActivity().application)
+        MyViewModelFactory(repository, requireActivity().application)
     }
     private lateinit var currentLatLng: LatLng
-    private var initialDistance: Int = 1000
+    private var stationRange: Int = MapFragment.stationRange
     private var type: Int = 0
     private lateinit var broadcastReceiver: BroadcastReceiver
     lateinit var sessionManager: SessionManager
-    lateinit var currentLocation:Location
+    lateinit var currentLocation: Location
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
         return fragmentStationListBinding.root
     }
@@ -60,15 +58,11 @@ class StationListFragment : Fragment(){
             }
             Log.d(TAG, "[onCreateView] currentLatLng = $currentLatLng")
             type = bundle.getInt(MapFragment.KEY_UBIKE_TYPE)
-            Log.d(TAG, "[extras] longitude = ${bundle.getDouble("longitude")} ,latitude = ${bundle.getDouble("latitude")}" + ",distance = $initialDistance")
         }
 
         getCurrentStationInfo()
-
         observeViewModel()
-
         setupBroadcastReceiver()
-
         initView()
     }
 
@@ -79,16 +73,15 @@ class StationListFragment : Fragment(){
                 getCurrentStationInfo()
             }
         }
-
         requireContext().registerReceiver(broadcastReceiver, IntentFilter(Intent.ACTION_TIME_TICK))
     }
 
     private fun getCurrentStationInfo() {
         viewModel.getStationInfoNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type
+            currentLatLng.latitude, currentLatLng.longitude, stationRange, type
         )
         viewModel.getAvailabilityNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, initialDistance, type, false
+            currentLatLng.latitude, currentLatLng.longitude, stationRange, type, false
         )
     }
 
@@ -96,14 +89,14 @@ class StationListFragment : Fragment(){
         stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
-                    Log.d(TAG,"[onItemClick] ITEM = "+it.stationName)
+                    Log.d(TAG, "[onItemClick] ITEM = " + it.stationName)
                     findNavController().popBackStack()
                     viewModel.setSelectStationUid(it.stationUID)
                 }
             }
 
             setOnShareClickListener { intent ->
-                intent.putExtra(Intent.EXTRA_SUBJECT,getString(R.string.share_subject))
+                intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
                 val shareIntent = Intent.createChooser(intent, null)
                 startActivity(shareIntent)
             }
@@ -114,27 +107,53 @@ class StationListFragment : Fragment(){
         }
         fragmentStationListBinding.stationListView.adapter = stationListAdapter
 
-        fragmentStationListBinding.imageButton.setOnClickListener{
+        fragmentStationListBinding.imageButton.setOnClickListener {
             findNavController().popBackStack()
         }
     }
 
-    /**
-     * observe the data from view model
-     * station info and available info by distance
-     * distance => 滑到頁面底部再加大距離
-     * 一剛開始加載此頁面以map 切換的經緯度+距離為主
-     */
     private fun observeViewModel() {
-        viewModel.stationInfo.observe(viewLifecycleOwner, androidx.lifecycle.Observer {
-            Log.d(TAG,"[observeViewModel] stationInfo SIZE = "+it.size)
-            SortUtils.sortListByDistance(it as ArrayList<StationInfoItem>)
-            stationListAdapter.updateStationList(it.toMutableList())
+        viewModel.stationInfo.observe(viewLifecycleOwner, Observer { response ->
+            when (response) {
+                is Resource.Success -> {
+                    response.data?.let { data ->
+                        Log.d(TAG, "[observeViewModel] stationInfo SIZE = " + data.size)
+                        SortUtils.sortListByDistance(data as ArrayList<StationInfoItem>)
+                        stationListAdapter.updateStationList(data.toMutableList())
+                    }
+                }
+
+                is Resource.Loading -> {
+
+                }
+
+                is Resource.Error -> {
+                    response.message?.let { message ->
+                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         })
 
-        viewModel.availabilityInfo.observe(viewLifecycleOwner, androidx.lifecycle.Observer {
-            Log.d(TAG,"[observeViewModel] availabilityInfo SIZE = "+it.size)
-            stationListAdapter.updateAvailabilityList(it.toMutableList())
+        viewModel.availabilityInfo.observe(viewLifecycleOwner, Observer { response ->
+            when (response) {
+                is Resource.Success -> {
+                    response.data?.let { data ->
+                        Log.d(TAG, "[observeViewModel] availabilityInfo SIZE = " + data.size)
+                        stationListAdapter.updateAvailabilityList(data.toMutableList())
+                    }
+                }
+
+                is Resource.Loading -> {
+
+                }
+
+                is Resource.Error -> {
+                    response.message?.let { message ->
+                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         })
     }
 

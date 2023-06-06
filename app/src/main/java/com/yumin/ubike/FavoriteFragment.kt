@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -42,7 +43,6 @@ class FavoriteFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         mapViewModel.getAllCityAvailabilityInfo()
         mapViewModel.getAllCityStationInfo()
 
@@ -50,21 +50,16 @@ class FavoriteFragment : Fragment() {
         requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
 
         sessionManager = SessionManager(requireContext())
-
-        // get favorite station info
         favoriteStationList = sessionManager.fetchFavoriteList()
         Log.d(TAG, "favoriteList = $favoriteStationList")
 
         setupBroadcastReceiver()
-
         setupRecyclerView()
 
         fragmentFavoriteBinding.imageButton.setOnClickListener {
             findNavController().popBackStack()
         }
 
-        // view model get all station info
-        // find station info and show on the recycler view
         observeViewModel()
     }
 
@@ -72,10 +67,11 @@ class FavoriteFragment : Fragment() {
         stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
-                    Log.d(TAG, "[onItemClick] stationName = " + it.stationName + " ,uid = " + it.stationUID +
-                            "availabilityInfoItem uid = " + availabilityInfoItem.StationUID +
-                            ", rent = " + availabilityInfoItem.AvailableRentBikes +
-                            ", return = " + availabilityInfoItem.AvailableReturnBikes
+                    Log.d(
+                        TAG, "[onItemClick] stationName = " + it.stationName + " ,uid = " + it.stationUID +
+                                "availabilityInfoItem uid = " + availabilityInfoItem.StationUID +
+                                ", rent = " + availabilityInfoItem.AvailableRentBikes +
+                                ", return = " + availabilityInfoItem.AvailableReturnBikes
                     )
                     findNavController().popBackStack()
                     mapViewModel.setSelectSearchStationUid(it, availabilityInfoItem)
@@ -116,20 +112,54 @@ class FavoriteFragment : Fragment() {
 
     private fun observeViewModel() {
         mapViewModel.allCityStationInfo.observe(viewLifecycleOwner, Observer { event ->
-            event.getContentIfNotHandled()?.let {
-                allStationInfo = it
-                Log.d(TAG, "[observeViewModel] getAllStationInfo SIZE = " + allStationInfo.size)
-                hideProgressBar()
-                getFavoriteStationInfo()
+            event.getContentIfNotHandled()?.let { response ->
+                when (response) {
+                    is Resource.Success -> {
+                        response.data?.let { data ->
+                            allStationInfo = data
+                            Log.d(TAG, "[observeViewModel] getAllStationInfo SIZE = " + allStationInfo.size)
+                            hideProgressBar()
+                            getFavoriteStationInfo()
+                        }
+                    }
+
+                    is Resource.Loading -> {
+                        showProgressBar()
+                    }
+
+                    is Resource.Error -> {
+                        response.message?.let { message ->
+                            Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                            hideProgressBar()
+                        }
+                    }
+                }
             }
         })
 
         mapViewModel.allCityAvailabilityInfo.observe(viewLifecycleOwner, Observer { event ->
-            event.getContentIfNotHandled()?.let {
-                allAvailabilityInfo = it
-                Log.d(TAG, "[observeViewModel] gwtAllAvailabilityInfo SIZE = " + allAvailabilityInfo.size)
-                hideProgressBar()
-                getFavoriteStationInfo()
+            event.getContentIfNotHandled()?.let { response ->
+                when (response) {
+                    is Resource.Success -> {
+                        response.data?.let { data ->
+                            allAvailabilityInfo = data
+                            Log.d(TAG, "[observeViewModel] gwtAllAvailabilityInfo SIZE = " + allAvailabilityInfo.size)
+                            hideProgressBar()
+                            getFavoriteStationInfo()
+                        }
+                    }
+
+                    is Resource.Loading -> {
+                        showProgressBar()
+                    }
+
+                    is Resource.Error -> {
+                        response.message?.let { message ->
+                            Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                            hideProgressBar()
+                        }
+                    }
+                }
             }
         })
     }
@@ -138,8 +168,11 @@ class FavoriteFragment : Fragment() {
         fragmentFavoriteBinding.progressBar.visibility = View.INVISIBLE
     }
 
+    private fun showProgressBar() {
+        fragmentFavoriteBinding.progressBar.visibility = View.VISIBLE
+    }
+
     private fun getFavoriteStationInfo() {
-        // if favorite list not empty ， find the station info & update adapter data
         var stationInfoList = mutableListOf<StationInfoItem>()
         var availabilityInfoList = mutableListOf<AvailabilityInfoItem>()
 

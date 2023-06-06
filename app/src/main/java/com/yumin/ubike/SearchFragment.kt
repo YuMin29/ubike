@@ -37,9 +37,6 @@ class SearchFragment : Fragment() {
     }
     private lateinit var stationListAdapter: StationListAdapter
 
-    // 資料來不及拿到就等query時顯示progress bar處理
-    // 再由這頁每分鐘更新一次
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         fragmentSearchBinding = FragmentSearchBinding.inflate(inflater)
         return fragmentSearchBinding.root
@@ -71,7 +68,6 @@ class SearchFragment : Fragment() {
 
                 override fun onQueryTextChange(queryString: String?): Boolean {
                     queryString?.let {
-                        showProgressBar()
                         queryFromStationList(queryString)
                     }
                     return true
@@ -97,11 +93,13 @@ class SearchFragment : Fragment() {
         stationListAdapter.apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
-                    Log.d(TAG, "[onItemClick] stationName = " + stationInfoItem.stationName +
-                            " ,uid = " + stationInfoItem.stationUID +
-                            " ,availabilityInfoItem uid = " + availabilityInfoItem.StationUID +
-                            " ,availabilityInfoItem rent = " + availabilityInfoItem.AvailableRentBikes +
-                            " ,return = " + availabilityInfoItem.AvailableReturnBikes)
+                    Log.d(
+                        TAG, "[onItemClick] stationName = " + stationInfoItem.stationName +
+                                " ,uid = " + stationInfoItem.stationUID +
+                                " ,availabilityInfoItem uid = " + availabilityInfoItem.StationUID +
+                                " ,availabilityInfoItem rent = " + availabilityInfoItem.AvailableRentBikes +
+                                " ,return = " + availabilityInfoItem.AvailableReturnBikes
+                    )
                     findNavController().popBackStack()
                     mapViewModel.setSelectSearchStationUid(stationInfoItem, availabilityInfoItem)
                 }
@@ -152,7 +150,6 @@ class SearchFragment : Fragment() {
             Log.d(TAG, "[filterList] queryString isEmpty")
             stationListAdapter.updateStationList(queryStationList)
             stationListAdapter.updateAvailabilityList(queryAvailabilityList)
-            hideProgressBar()
             showNoResultView()
             return
         }
@@ -162,15 +159,15 @@ class SearchFragment : Fragment() {
         }.toMutableList()
 
         queryAvailabilityList = allAvailabilityInfoList.filter { availabilityInfoItem ->
-                queryStationList.any {
-                    it.stationUID == availabilityInfoItem.StationUID
-                }
+            queryStationList.any {
+                it.stationUID == availabilityInfoItem.StationUID
+            }
         }.toMutableList()
 
 
         if (queryStationList.isEmpty())
             showNoResultView()
-         else
+        else
             hideNoResultView()
 
 
@@ -181,38 +178,64 @@ class SearchFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        mapViewModel.allCityAvailabilityInfo.observe(viewLifecycleOwner, Observer { allCityAvailabilityInfo ->
-            allCityAvailabilityInfo.getContentIfNotHandled()?.let { cityAvailabilityList ->
-                Log.d(TAG, "[allCityAvailabilityInfo] list.size = " + cityAvailabilityList.size)
+        mapViewModel.allCityAvailabilityInfo.observe(viewLifecycleOwner, Observer { event ->
+            event.getContentIfNotHandled()?.let { response ->
+                when (response) {
+                    is Resource.Success -> {
+                        response.data?.let { data ->
+                            Log.d(TAG, "[allCityAvailabilityInfo] list.size = " + data.size)
+                            allAvailabilityInfoList.clear()
+                            // collect all station available info from each city
+                            data.forEach {
+                                allAvailabilityInfoList.addAll(it)
+                            }
+                            // check query string event
+                            queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
+                                queryFromStationList(queryString)
+                            }
+                            hideProgressBar()
+                        }
+                    }
 
-                allAvailabilityInfoList.clear()
+                    is Resource.Loading -> {
+                        Log.d(TAG, "allCityAvailabilityInfo LOADING")
+                        showProgressBar()
+                    }
 
-                // collect all station available info from each city
-                cityAvailabilityList.forEach {
-                    allAvailabilityInfoList.addAll(it)
-                }
-
-                // check query string event
-                queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
-                    queryFromStationList(queryString)
+                    is Resource.Error -> {
+                        hideProgressBar()
+                    }
                 }
             }
         })
 
-        mapViewModel.allCityStationInfo.observe(viewLifecycleOwner, Observer { allCityStationInfo ->
-            allCityStationInfo.getContentIfNotHandled()?.let { cityStationList ->
-                Log.d(TAG, "[allCityStationInfo] list.size =  " + cityStationList.size)
+        mapViewModel.allCityStationInfo.observe(viewLifecycleOwner, Observer { event ->
+            event.getContentIfNotHandled()?.let { response ->
+                when (response) {
+                    is Resource.Success -> {
+                        response.data?.let { data ->
+                            Log.d(TAG, "[allCityStationInfo] list.size =  " + data.size)
+                            allStationList.clear()
+                            // collect all station info from each city
+                            data.forEach {
+                                allStationList.addAll(it)
+                            }
+                            // check query string event
+                            queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
+                                queryFromStationList(queryString)
+                            }
+                            hideProgressBar()
+                        }
+                    }
 
-                allStationList.clear()
+                    is Resource.Loading -> {
+                        Log.d(TAG, "allCityStationInfo LOADING")
+                        showProgressBar()
+                    }
 
-                // collect all station info from each city
-                cityStationList.forEach {
-                    allStationList.addAll(it)
-                }
-
-                // check query string event
-                queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
-                    queryFromStationList(queryString)
+                    is Resource.Error -> {
+                        hideProgressBar()
+                    }
                 }
             }
         })

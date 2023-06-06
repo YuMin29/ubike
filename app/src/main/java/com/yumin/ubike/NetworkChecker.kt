@@ -25,14 +25,15 @@ object NetworkChecker {
     private fun connectivityStatusString(context: Context): Int {
         val connection = connectivityStatus(context)
         var status = -1
-        if (connection == TYPE_WIFI) status = NETWORK_STATUS_WIFI else if (connection == TYPE_MOBILE) status = NETWORK_STATUS_MOBILE else if (connection == TYPE_NOT_CONNECTED) status = NETWORK_STATUS_NOT_CONNECTED
+        if (connection == TYPE_WIFI) status = NETWORK_STATUS_WIFI else if (connection == TYPE_MOBILE) status = NETWORK_STATUS_MOBILE else if (connection == TYPE_NOT_CONNECTED) status =
+            NETWORK_STATUS_NOT_CONNECTED
         return status
     }
 
-    fun checkConnectivity(context : Context):Boolean{
+    fun checkConnectivity(context: Context): Boolean {
         val status = connectivityStatusString(context)
         if (status == NETWORK_STATUS_NOT_CONNECTED)
-            Toast.makeText(context,context.getString(R.string.network_error),Toast.LENGTH_LONG).show()
+            Toast.makeText(context, context.getString(R.string.network_error), Toast.LENGTH_LONG).show()
         return status == NETWORK_STATUS_WIFI || status == NETWORK_STATUS_MOBILE
     }
 }

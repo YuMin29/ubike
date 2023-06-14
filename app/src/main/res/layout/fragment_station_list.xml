@@ -9,7 +9,7 @@
         android:id="@+id/view"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="@color/pink">
+        android:background="@color/primary_700">
 
         <ImageButton
             android:id="@+id/imageButton"
@@ -30,6 +30,7 @@
             android:layout_marginStart="24dp"
             android:layout_toRightOf="@id/imageButton"
             android:gravity="center"
+            android:textColor="@color/white"
             android:text="@string/station_list"
             android:textSize="22sp"
             app:layout_constraintBottom_toBottomOf="parent"

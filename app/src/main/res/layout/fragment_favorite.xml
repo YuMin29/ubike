@@ -16,7 +16,7 @@
         android:id="@+id/view"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="@color/pink">
+        android:background="@color/primary_700">
 
         <ImageButton
             android:id="@+id/imageButton"
@@ -36,6 +36,7 @@
             android:layout_height="0dp"
             android:layout_marginStart="24dp"
             android:layout_toRightOf="@id/imageButton"
+            android:textColor="@color/white"
             android:gravity="center"
             android:text="@string/title_activity_favorite"
             android:textSize="22sp"

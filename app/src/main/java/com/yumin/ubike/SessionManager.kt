@@ -6,8 +6,12 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.yumin.ubike.repository.UbikeRepository
+import org.json.JSONObject
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SessionManager(context: Context) {
+class SessionManager @Inject constructor (private val context: Context) {
     private val TAG = "[SessionManager]"
     private var sharedPreferences: SharedPreferences =
         context.getSharedPreferences(context.getString(R.string.app_name), Context.MODE_PRIVATE)

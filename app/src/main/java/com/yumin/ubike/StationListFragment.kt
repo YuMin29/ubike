@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -19,23 +20,27 @@ import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.model.LatLng
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentStationListBinding
-import com.yumin.ubike.repository.RemoteRepository
+import com.yumin.ubike.repository.UbikeRepository
 import java.util.*
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class StationListFragment : Fragment() {
     private val TAG = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
+    @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
     private val viewModel: MapViewModel by activityViewModels {
-        val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository, requireActivity().application)
+        viewModelFactory
     }
     private lateinit var currentLatLng: LatLng
     private var stationRange: Int = MapFragment.stationRange
     private var type: Int = 0
     private lateinit var broadcastReceiver: BroadcastReceiver
-    lateinit var sessionManager: SessionManager
     lateinit var currentLocation: Location
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -47,8 +52,10 @@ class StationListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
-        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
-        sessionManager = SessionManager(requireContext())
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.primary_700)
+        ViewCompat.getWindowInsetsController(requireActivity().window.decorView)?.apply {
+            isAppearanceLightStatusBars = false
+        }
 
         arguments?.let { bundle ->
             currentLatLng = LatLng(bundle.getDouble(MapFragment.KEY_LATITUDE), bundle.getDouble(MapFragment.KEY_LONGITUDE))
@@ -86,7 +93,7 @@ class StationListFragment : Fragment() {
     }
 
     private fun initView() {
-        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
+        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(),sessionManager).apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
                     Log.d(TAG, "[onItemClick] ITEM = " + it.stationName)
@@ -129,7 +136,7 @@ class StationListFragment : Fragment() {
 
                 is Resource.Error -> {
                     response.message?.let { message ->
-                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                        Log.e(TAG,"observe stationInfo, an error happened: $message")
                     }
                 }
             }
@@ -150,7 +157,7 @@ class StationListFragment : Fragment() {
 
                 is Resource.Error -> {
                     response.message?.let { message ->
-                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                        Log.e(TAG,"observe availabilityInfo, an error happened: $message")
                     }
                 }
             }

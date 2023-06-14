@@ -15,25 +15,28 @@ import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentSearchBinding
-import com.yumin.ubike.repository.RemoteRepository
+import dagger.hilt.android.AndroidEntryPoint
 import java.util.*
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class SearchFragment : Fragment() {
     private val TAG = "[SearchFragment]"
     private lateinit var fragmentSearchBinding: FragmentSearchBinding
     private var allStationList = mutableListOf<StationInfoItem>()
     private var allAvailabilityInfoList = mutableListOf<AvailabilityInfoItem>()
-    lateinit var sessionManager: SessionManager
     lateinit var broadcastReceiver: BroadcastReceiver
     var queryStringEvent: Event<String>? = null
+    @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
 
     private val mapViewModel: MapViewModel by activityViewModels {
-        val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository, requireActivity().application)
+        viewModelFactory
     }
     private lateinit var stationListAdapter: StationListAdapter
 
@@ -86,9 +89,7 @@ class SearchFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        sessionManager = SessionManager(requireActivity())
-
-        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager)
+        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(),sessionManager)
 
         stationListAdapter.apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
@@ -203,6 +204,9 @@ class SearchFragment : Fragment() {
                     }
 
                     is Resource.Error -> {
+                        response.message?.let { message ->
+                            Log.e(TAG,"observe allCityAvailabilityInfo, an error happened: $message")
+                        }
                         hideProgressBar()
                     }
                 }
@@ -234,6 +238,9 @@ class SearchFragment : Fragment() {
                     }
 
                     is Resource.Error -> {
+                        response.message?.let { message ->
+                            Log.e(TAG,"observe allCityStationInfo, an error happened: $message")
+                        }
                         hideProgressBar()
                     }
                 }

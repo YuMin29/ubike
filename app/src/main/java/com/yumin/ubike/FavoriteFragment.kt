@@ -10,26 +10,31 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentFavoriteBinding
-import com.yumin.ubike.repository.RemoteRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class FavoriteFragment : Fragment() {
     private val TAG = "[FavoriteFragment]"
     private lateinit var fragmentFavoriteBinding: FragmentFavoriteBinding
-    private lateinit var sessionManager: SessionManager
     private lateinit var stationListAdapter: StationListAdapter
+    @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
+
     private val mapViewModel: MapViewModel by activityViewModels {
-        val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository, requireActivity().application)
+        viewModelFactory
     }
     private lateinit var favoriteStationList: ArrayList<String>
     private lateinit var broadcastReceiver: BroadcastReceiver
@@ -47,9 +52,12 @@ class FavoriteFragment : Fragment() {
         mapViewModel.getAllCityStationInfo()
 
         WindowCompat.setDecorFitsSystemWindows(requireActivity().window, true)
-        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.pink)
+        requireActivity().window.statusBarColor = requireActivity().getColor(R.color.primary_700)
 
-        sessionManager = SessionManager(requireContext())
+        ViewCompat.getWindowInsetsController(requireActivity().window.decorView)?.apply {
+            isAppearanceLightStatusBars = false
+        }
+
         favoriteStationList = sessionManager.fetchFavoriteList()
         Log.d(TAG, "favoriteList = $favoriteStationList")
 
@@ -64,7 +72,7 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(), sessionManager).apply {
+        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(),sessionManager).apply {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
                     Log.d(
@@ -129,7 +137,7 @@ class FavoriteFragment : Fragment() {
 
                     is Resource.Error -> {
                         response.message?.let { message ->
-                            Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                            Log.e(TAG,"observe allCityStationInfo, an error happened: $message")
                             hideProgressBar()
                         }
                     }
@@ -155,7 +163,7 @@ class FavoriteFragment : Fragment() {
 
                     is Resource.Error -> {
                         response.message?.let { message ->
-                            Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                            Log.e(TAG,"observe allCityAvailabilityInfo, an error happened: $message")
                             hideProgressBar()
                         }
                     }

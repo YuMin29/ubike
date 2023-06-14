@@ -26,10 +26,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -44,24 +46,29 @@ import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentMapBinding
 import com.yumin.ubike.databinding.LayoutBottomSheetDialogBinding
-import com.yumin.ubike.repository.RemoteRepository
+import com.yumin.ubike.repository.UbikeRepository
+import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
 import java.util.*
+import javax.inject.Inject
 import kotlin.collections.ArrayList
 
 
 /**
  * MapFragment responsible for show map
  */
+@AndroidEntryPoint
 class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private val TAG = "[MapFragment]"
     private lateinit var fragmentMapBinding: FragmentMapBinding
     private lateinit var locationManager: LocationManager
     private lateinit var mapView: View
     private lateinit var myGoogleMap: GoogleMap
+    @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
+
     private val mapViewModel: MapViewModel by activityViewModels {
-        val repository = RemoteRepository(SessionManager(requireActivity()))
-        MyViewModelFactory(repository, requireActivity().application)
+        viewModelFactory
     }
     private var isDrawCurrentPosition: Boolean = false
     private lateinit var currentLocationWhenStart: LatLng
@@ -77,10 +84,12 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private var showingMarker: Marker? = null
     private lateinit var receiver: BroadcastReceiver
     private var mapCircle: Circle? = null
-    private lateinit var sessionManager: SessionManager
 
-    private enum class UbikeType(val value: Int) {
-        ONE(1), TWO(2), ALL(0)
+
+    enum class UbikeType constructor(val value: Int) {
+        ONE(1),
+        TWO(2),
+        ALL(0)
     }
 
     companion object {
@@ -107,6 +116,11 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         // setup status bar color to transparent
         WindowCompat.setDecorFitsSystemWindows(requireActivity().window, false)
         requireActivity().window.statusBarColor = requireActivity().getColor(R.color.transparent)
+
+        ViewCompat.getWindowInsetsController(requireActivity().window.decorView)?.apply {
+            isAppearanceLightStatusBars = true
+        }
+
         checkPermission()
     }
 
@@ -122,7 +136,6 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private fun initializeMapFragment() {
         fragmentMapBinding.mapGroup.visibility = View.VISIBLE
         fragmentMapBinding.locationOff.visibility = View.GONE
-        sessionManager = SessionManager(requireContext())
         locationManager = requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
         //Get current location by network
         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, this)
@@ -281,7 +294,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
                 is Resource.Error -> {
                     response.message?.let { message ->
-                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                        Log.e(TAG,"observe stationInfo, an error happened: $message")
                     }
                 }
             }
@@ -303,7 +316,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
                 is Resource.Error -> {
                     response.message?.let { message ->
-                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                        Log.e(TAG,"observe availabilityInfo, an error happened: $message")
                     }
                 }
             }
@@ -326,7 +339,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
                 is Resource.Error -> {
                     response.message?.let { message ->
-                        Toast.makeText(requireContext(), "An error happened: $message", Toast.LENGTH_SHORT).show()
+                        Log.e(TAG,"observe refreshAvailability, an error happened: $message")
                     }
                 }
             }
@@ -389,7 +402,14 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             Log.d(TAG, "[showBottomSheetDialog] show distance = " + getStationDistance(stationLatLng))
             stationName.text = stationNameSplitList[1]
             stationAddress.text = stationInfoItem.stationAddress.zhTw
-            type.text = stationNameSplitList[0]
+            type.apply {
+                text = stationNameSplitList[0]
+
+                background = if (stationInfoItem.serviceType == 1)
+                    context.getDrawable(R.drawable.ubike_type_bg)
+                else
+                    context.getDrawable(R.drawable.ubike_type2_bg)
+            }
             availableRent.text = availabilityInfoItem.AvailableRentBikes.toString() + "可借"
             availableReturn.text = availabilityInfoItem.AvailableReturnBikes.toString() + "可還"
             share.setOnClickListener {
@@ -689,7 +709,6 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         Log.d(TAG, "[onMapReady]")
         this.myGoogleMap = googleMap
         myGoogleMap.clear()
-        observeViewModelData()
         this.myGoogleMap.isMyLocationEnabled = true
 
         this.myGoogleMap.apply {
@@ -749,5 +768,6 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE)
             setMargins(0, 0, 30, 30)
         }
+        observeViewModelData()
     }
 }

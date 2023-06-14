@@ -20,7 +20,7 @@ import java.util.*
 class StationListAdapter(
     private var stationList: MutableList<StationInfoItem>,
     private var availabilityList: MutableList<AvailabilityInfoItem>,
-    private val sessionManager: SessionManager
+    private var sessionManager: SessionManager
 ) : RecyclerView.Adapter<BaseViewHolder>() {
 
     private val TAG = "[StationListAdapter]"
@@ -104,6 +104,14 @@ class StationListAdapter(
                 stationName.text = stationNameSplit[1]
                 stationAddress.text = stationInfoItem.stationAddress.zhTw
                 type.text = stationNameSplit[0]
+                type.apply {
+                    text = stationNameSplit[0]
+
+                    background = if (stationInfoItem.serviceType == 1)
+                        context.getDrawable(R.drawable.ubike_type_bg)
+                    else
+                        context.getDrawable(R.drawable.ubike_type2_bg)
+                }
                 stationDistance.text = getStationDistance(
                     LatLng(
                         stationInfoItem.stationPosition.positionLat,

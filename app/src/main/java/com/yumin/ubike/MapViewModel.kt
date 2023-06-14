@@ -1,67 +1,32 @@
 package com.yumin.ubike
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.*
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
-import com.yumin.ubike.repository.RemoteRepository
+import com.yumin.ubike.repository.UbikeRepository
 import kotlinx.coroutines.*
-import okhttp3.ResponseBody
-import org.json.JSONObject
-import retrofit2.Call
-import retrofit2.Response
-import java.io.IOException
+import javax.inject.Inject
 
-class MapViewModel(private val repository: RemoteRepository, application: Application) : AndroidViewModel(application) {
+
+class MapViewModel @Inject constructor(application: Application,val repository: UbikeRepository) : AndroidViewModel(application) {
     private val TAG = "[MapViewModel]"
-    private var sessionManager = SessionManager(getApplication())
-    private val allCities = arrayListOf(
+    private val cities = arrayListOf(
         "Taichung", "Hsinchu", "MiaoliCounty", "NewTaipei", "PingtungCounty",
         "KinmenCounty", "Taoyuan", "Taipei", "Kaohsiung", "Tainan", "Chiayi", "HsinchuCounty"
     )
 
     var selectStationUid = MutableLiveData<Event<String>>()
     var searchStationUid = MutableLiveData<Event<Pair<StationInfoItem, AvailabilityInfoItem>>>()
-    var tokenStatus = MutableLiveData<Resource<String>>()
     var stationInfo = MutableLiveData<Resource<StationInfo>>()
     var availabilityInfo = MutableLiveData<Resource<AvailabilityInfo>>()
     var refreshAvailability = MutableLiveData<Resource<AvailabilityInfo>>()
     var allCityStationInfo = MutableLiveData<Event<Resource<List<StationInfo>>>>()
     var allCityAvailabilityInfo = MutableLiveData<Event<Resource<List<AvailabilityInfo>>>>()
 
-
-    init {
-        Log.d(TAG, "[init_block]")
-        getToken()
-    }
-
-    private fun getToken() {
-        tokenStatus.postValue(Resource.Loading())
-        try {
-            if (NetworkChecker.checkConnectivity(getApplication())) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    val response = repository.getToken()
-                    if (response.isSuccessful) {
-                        response.body()?.let { result ->
-                            var bodyContent = result.string()
-                            var jsonObject = JSONObject(bodyContent)
-                            Log.d(TAG, "getToken onResponse access_token = " + jsonObject.get("access_token"))
-                            val token = jsonObject.get("access_token").toString()
-                            sessionManager.saveAuthToken(String.format("Bearer %s", token))
-                        }
-                    } else {
-                        tokenStatus.postValue(Resource.Error(response.message()))
-                    }
-                }
-            }
-        } catch (t: Throwable) {
-            tokenStatus.postValue(Resource.Error("exception:" + t.message))
-        }
-    }
 
     fun getAllCityStationInfo() {
         allCityStationInfo.postValue(Event(Resource.Loading()))
@@ -83,7 +48,7 @@ class MapViewModel(private val repository: RemoteRepository, application: Applic
                             result
                         }
                     }
-                    val stationInfo = allCities.map(transform1).awaitAll()
+                    val stationInfo = cities.map(transform1).awaitAll()
 
                     Log.d(TAG, "[getAllCityStationInfo] [postValue]");
                     allCityStationInfo.postValue(Event(Resource.Success(stationInfo)))
@@ -115,7 +80,7 @@ class MapViewModel(private val repository: RemoteRepository, application: Applic
                             result
                         }
                     }
-                    val availabilityInfo = allCities.map(transform).awaitAll()
+                    val availabilityInfo = cities.map(transform).awaitAll()
                     Log.d(TAG, "[getAllCityAvailabilityInfo] [postValue]");
                     allCityAvailabilityInfo.postValue(Event(Resource.Success(availabilityInfo)))
                 }

@@ -54,9 +54,6 @@ import javax.inject.Inject
 import kotlin.collections.ArrayList
 
 
-/**
- * MapFragment responsible for show map
- */
 @AndroidEntryPoint
 class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private val TAG = "[MapFragment]"

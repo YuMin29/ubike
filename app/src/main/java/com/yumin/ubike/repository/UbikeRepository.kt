@@ -1,11 +1,9 @@
 package com.yumin.ubike.repository
 
 import com.yumin.ubike.BuildConfig
-import com.yumin.ubike.SessionManager
 import javax.inject.Inject
-import javax.inject.Singleton
 
-class UbikeRepository @Inject constructor(private val apiService: ApiService){
+class UbikeRepository @Inject constructor(private val apiService: ApiService) {
     suspend fun getAvailabilityByCity(city: String) =
         apiService.getAvailabilityByCity(city)
 
@@ -19,5 +17,6 @@ class UbikeRepository @Inject constructor(private val apiService: ApiService){
         apiService.getAvailabilityInfoNearBy(nearBy, serviceType, "JSON")
 
     suspend fun getToken() = apiService.getToken(
-        "client_credentials", BuildConfig.CLIENT_ID, BuildConfig.CLIENT_SECRET)
+        "client_credentials", BuildConfig.CLIENT_ID, BuildConfig.CLIENT_SECRET
+    )
 }

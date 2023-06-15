@@ -13,10 +13,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import javax.inject.Inject
 
-class TokenAuthInterceptor @Inject constructor (
-    private val sessionManager: SessionManager,
-    private val repository: Lazy<UbikeRepository>,
-    private val context: Context,) : Interceptor {
+class TokenAuthInterceptor @Inject constructor (private val sessionManager: SessionManager, private val repository: Lazy<UbikeRepository>, private val context: Context,) : Interceptor {
     val TAG = "[TokenAuthInerecptor]"
 
     override fun intercept(chain: Interceptor.Chain): Response {

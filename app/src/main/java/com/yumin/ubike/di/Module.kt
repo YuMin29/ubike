@@ -1,8 +1,6 @@
 package com.yumin.ubike.di
 
 import android.content.Context
-import android.util.Log
-import com.yumin.ubike.NetworkChecker
 import com.yumin.ubike.SessionManager
 import com.yumin.ubike.repository.ApiService
 import com.yumin.ubike.repository.UbikeRepository
@@ -39,22 +37,24 @@ object Module {
 
     @Provides
     @Singleton
-    fun provideTokenAuthInterceptor(sessionManager: SessionManager,repository: Lazy<UbikeRepository>,@ApplicationContext context: Context): TokenAuthInterceptor{
-        return TokenAuthInterceptor(sessionManager,repository,context)
+    fun provideTokenAuthInterceptor(sessionManager: SessionManager, repository: Lazy<UbikeRepository>, @ApplicationContext context: Context): TokenAuthInterceptor {
+        return TokenAuthInterceptor(sessionManager, repository, context)
     }
 
     @Provides
     @Singleton
-    fun provideRetrofit(tokenAuthInterceptor: TokenAuthInterceptor): Retrofit{
+    fun provideRetrofit(tokenAuthInterceptor: TokenAuthInterceptor): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://tdx.transportdata.tw/")
-            .client( OkHttpClient.Builder()
-                .connectTimeout(5000, TimeUnit.MILLISECONDS)
-                .addInterceptor(HttpLoggingInterceptor().apply {
-                    this.level = HttpLoggingInterceptor.Level.NONE
-                })
-            .addInterceptor(tokenAuthInterceptor)
-                .build())
+            .client(
+                OkHttpClient.Builder()
+                    .connectTimeout(5000, TimeUnit.MILLISECONDS)
+                    .addInterceptor(HttpLoggingInterceptor().apply {
+                        this.level = HttpLoggingInterceptor.Level.NONE
+                    })
+                    .addInterceptor(tokenAuthInterceptor)
+                    .build()
+            )
             .addConverterFactory(GsonConverterFactory.create())
             .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
             .build()

@@ -13,4 +13,6 @@
     <color name="secondary_orange">#F9AA33</color>
     <color name="light_grey">#D3D3D3</color>
     <color name="pink">#D3BBB7</color>
+    <color name="transparent">#00000000</color>
+    <color name="map_circle">#96CCCCCC</color>
 </resources>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_navigation"
+    app:startDestination="@id/map">
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.yumin.ubike.MapFragment"
+        android:label="map"
+        tools:layout="@layout/fragment_map">
+
+        <action
+            android:id="@+id/action_map_to_list"
+            app:destination="@id/stationList"/>
+
+        <action
+            android:id="@+id/action_map_to_favorite"
+            app:destination="@id/favorite"/>
+
+        <action
+            android:id="@+id/action_map_to_search"
+            app:destination="@id/search"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/stationList"
+        android:name="com.yumin.ubike.StationListFragment"
+        android:label="stationList"
+        tools:layout="@layout/fragment_station_list"/>
+
+    <fragment
+        android:id="@+id/favorite"
+        android:name="com.yumin.ubike.FavoriteFragment"
+        android:label="favorite"
+        tools:layout="@layout/fragment_favorite"/>
+
+    <fragment
+        android:id="@+id/search"
+        android:name="com.yumin.ubike.SearchFragment"
+        android:label="search"
+        tools:layout="@layout/fragment_search"/>
+</navigation>

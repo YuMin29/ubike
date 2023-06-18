@@ -14,7 +14,7 @@
         android:layout_marginStart="32dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="8dp"
-        android:background="@drawable/ubike_info_bg"
+        android:background="@drawable/ubike_type_bg"
         android:padding="10dp"
         android:text="TextView"
         android:textColor="@color/primary_800"
@@ -31,7 +31,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
-        android:background="@drawable/ubike_info_bg"
+        android:background="@drawable/ubike_type_bg"
         android:gravity="center"
         android:padding="10dp"
         android:text="TextView"
@@ -47,7 +47,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="22dp"
         android:layout_marginEnd="22dp"
-        android:background="@drawable/ubike_info_bg"
+        android:background="@drawable/ubike_type_bg"
         android:paddingTop="5dp"
         android:paddingLeft="10dp"
         android:paddingEnd="10dp"
@@ -60,7 +60,7 @@
 
 
     <TextView
-        android:id="@+id/distance"
+        android:id="@+id/distanceTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
@@ -122,25 +122,25 @@
         app:layout_constraintTop_toBottomOf="@+id/station_address">
 
         <Button
-            android:id="@+id/button"
+            android:id="@+id/navigate"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:drawableTop="@drawable/ic_baseline_directions_24"
-            android:text="導航"
+            android:text="@string/navigation"
             android:textColor="@color/primary_800"
             app:backgroundTint="@color/white" />
 
         <Button
-            android:id="@+id/button2"
+            android:id="@+id/favorite"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:backgroundTint="@color/white"
-            android:drawableTop="@drawable/ic_baseline_favorite_24"
-            android:text="收藏"
+            android:drawableTop="@drawable/ic_baseline_favorite_border_24"
+            android:text="@string/favorite"
             android:textColor="@color/primary_800" />
 
         <Button
@@ -151,7 +151,7 @@
             android:layout_weight="1"
             android:backgroundTint="@color/white"
             android:drawableTop="@drawable/ic_baseline_share_24"
-            android:text="分享"
+            android:text="@string/share"
             android:textColor="@color/primary_800" />
     </LinearLayout>
 

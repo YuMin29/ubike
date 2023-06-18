@@ -3,43 +3,39 @@ package com.yumin.ubike.repository
 import com.yumin.ubike.data.AvailabilityInfo
 import com.yumin.ubike.data.StationInfo
 import okhttp3.ResponseBody
-import retrofit2.Call
+import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
     @FormUrlEncoded
     @POST("auth/realms/TDXConnect/protocol/openid-connect/token")
-    fun getToken(
+    suspend fun getToken(
         @Field("grant_type") type: String,
         @Field("client_id") id: String,
         @Field("client_secret") secret: String
-    ): Call<ResponseBody>
+    ): Response<ResponseBody>
 
     @GET("api/basic/v2/Bike/Station/City/{City}")
-    fun getStationInfoByCity(
-        @Header("authorization") token: String,
+    suspend fun getStationInfoByCity(
         @Path("City") city: String
-    ): Call<StationInfo>
+    ): Response<StationInfo>
 
     @GET("api/basic/v2/Bike/Availability/City/{City}")
-    fun getAvailabilityByCity(
-        @Header("authorization") token: String,
+    suspend fun getAvailabilityByCity(
         @Path("City") city: String
-    ): Call<AvailabilityInfo>
+    ): Response<AvailabilityInfo>
 
     @GET("api/advanced/v2/Bike/Station/NearBy")
-    fun getStationInfoNearBy(
-        @Header("authorization") token: String,
+    suspend fun getStationInfoNearBy(
         @Query("\$spatialFilter") nearBy: String,
         @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String
-    ): Call<StationInfo>
+    ): Response<StationInfo>
 
     @GET("api/advanced/v2/Bike/Availability/NearBy")
-    fun getAvailabilityInfoNearBy(
-        @Header("authorization") token: String,
+    suspend fun getAvailabilityInfoNearBy(
         @Query("\$spatialFilter") nearBy: String,
         @Query("\$filter") serviceType: String? = null,
         @Query("format") format: String
-    ): Call<AvailabilityInfo>
+    ): Response<AvailabilityInfo>
 }

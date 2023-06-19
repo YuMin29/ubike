@@ -1,3 +1,3 @@
 # Ubike app 
-Kotlin / MVVM / Hilt / Retrofit 
-Data source : TDX 
+> Kotlin / MVVM / Hilt / Retrofit  
+> Data source : TDX  

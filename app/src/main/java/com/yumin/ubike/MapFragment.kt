@@ -581,7 +581,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
     // TODO 20230605 修改這個
     private fun checkGoogleMapMarkers(stationInfo: StationInfo) {
-        stationInfo.forEach { stationInfoItem ->
+        for (stationInfoItem in stationInfo) {
             val existingMarker = googleMapMarkers.containsKey(stationInfoItem.stationUID)
 
             if (existingMarker) {
@@ -591,6 +591,16 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
                 addNewMarker(stationInfoItem)
             }
         }
+//        stationInfo.forEach { stationInfoItem ->
+//            val existingMarker = googleMapMarkers.containsKey(stationInfoItem.stationUID)
+//
+//            if (existingMarker) {
+//                updateExistingMarker(stationInfoItem)
+//            } else {
+//                // add
+//                addNewMarker(stationInfoItem)
+//            }
+//        }
         // check current marker's distance
         val iterator = googleMapMarkers.entries.iterator()
         while (iterator.hasNext()) {
@@ -689,7 +699,7 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
     private fun refreshMapMarkers(availabilityInfo: AvailabilityInfo) {
         var refreshTimes = 0
-        availabilityInfo.forEach { item ->
+        for (item in availabilityInfo) {
             if (googleMapMarkers.containsKey(item.StationUID)) {
                 // need to update icon
                 val updateMarker = googleMapMarkers.get(item.StationUID)
@@ -700,6 +710,17 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
             }
             Log.d(TAG, "[refreshClusterItems] refreshTimes = $refreshTimes")
         }
+//        availabilityInfo.forEach { item ->
+//            if (googleMapMarkers.containsKey(item.StationUID)) {
+//                // need to update icon
+//                val updateMarker = googleMapMarkers.get(item.StationUID)
+//                val iconId = getRateIcon(item.AvailableRentBikes, item.AvailableReturnBikes)
+//                if (updateMarker != showingMarker)
+//                    updateMarker?.setIcon(getBitmapFromVector(iconId))
+//                refreshTimes++
+//            }
+//            Log.d(TAG, "[refreshClusterItems] refreshTimes = $refreshTimes")
+//        }
     }
 
     override fun onMapReady(googleMap: GoogleMap) {

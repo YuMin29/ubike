@@ -184,16 +184,24 @@ class FavoriteFragment : Fragment() {
         var stationInfoList = mutableListOf<StationInfoItem>()
         var availabilityInfoList = mutableListOf<AvailabilityInfoItem>()
 
-        allStationInfo.forEach {
-            stationInfoList.addAll(it)
+//        allStationInfo.forEach {
+//            stationInfoList.addAll(it)
+//        }
+
+        for (stationInfo in allStationInfo) {
+            stationInfoList.addAll(stationInfo)
         }
 
         stationInfoList = stationInfoList.filter { stationInfoItem ->
             favoriteStationList.contains(stationInfoItem.stationUID)
         }.toMutableList()
 
-        allAvailabilityInfo.forEach {
-            availabilityInfoList.addAll(it)
+//        allAvailabilityInfo.forEach {
+//            availabilityInfoList.addAll(it)
+//        }
+
+        for (availabilityInfo in allAvailabilityInfo) {
+            availabilityInfoList.addAll(availabilityInfo)
         }
 
         availabilityInfoList = availabilityInfoList.filter { availabilityInfo ->

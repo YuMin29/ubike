@@ -187,9 +187,13 @@ class SearchFragment : Fragment() {
                             Log.d(TAG, "[allCityAvailabilityInfo] list.size = " + data.size)
                             allAvailabilityInfoList.clear()
                             // collect all station available info from each city
-                            data.forEach {
-                                allAvailabilityInfoList.addAll(it)
+                            for (availabilityInfo in data) {
+                                allAvailabilityInfoList.addAll(availabilityInfo)
                             }
+
+//                            data.forEach {
+//                                allAvailabilityInfoList.addAll(it)
+//                            }
                             // check query string event
                             queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
                                 queryFromStationList(queryString)
@@ -221,9 +225,12 @@ class SearchFragment : Fragment() {
                             Log.d(TAG, "[allCityStationInfo] list.size =  " + data.size)
                             allStationList.clear()
                             // collect all station info from each city
-                            data.forEach {
-                                allStationList.addAll(it)
+                            for (stationInfo in data) {
+                                allStationList.addAll(stationInfo)
                             }
+//                            data.forEach {
+//                                allStationList.addAll(it)
+//                            }
                             // check query string event
                             queryStringEvent?.getContentIfNotHandled()?.let { queryString ->
                                 queryFromStationList(queryString)

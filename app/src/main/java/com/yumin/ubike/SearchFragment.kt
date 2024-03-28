@@ -14,6 +14,7 @@ import android.widget.SearchView
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -33,11 +34,7 @@ class SearchFragment : Fragment() {
     lateinit var broadcastReceiver: BroadcastReceiver
     var queryStringEvent: Event<String>? = null
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
-
-    private val mapViewModel: MapViewModel by activityViewModels {
-        viewModelFactory
-    }
+    private val mapViewModel: MapViewModel by activityViewModels()
     private lateinit var stationListAdapter: StationListAdapter
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {

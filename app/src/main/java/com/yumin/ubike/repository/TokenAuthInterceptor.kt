@@ -5,7 +5,7 @@ import android.util.Log
 import com.yumin.ubike.NetworkChecker
 import com.yumin.ubike.SessionManager
 import dagger.Lazy
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
@@ -13,7 +13,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import javax.inject.Inject
 
-class TokenAuthInterceptor @Inject constructor (private val sessionManager: SessionManager, private val repository: Lazy<UbikeRepository>, private val context: Context,) : Interceptor {
+class TokenAuthInterceptor (private val sessionManager: SessionManager, private val repository: Lazy<UbikeRepository>, private val context: Context,) : Interceptor {
     val TAG = "[TokenAuthInerecptor]"
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -24,8 +24,12 @@ class TokenAuthInterceptor @Inject constructor (private val sessionManager: Sess
         if (response.code == HttpURLConnection.HTTP_UNAUTHORIZED) {
             Log.d(TAG,"HTTP_UNAUTHORIZED")
             // update token
-            runBlocking {
-                val newToken = getToken()
+
+            runBlocking() {
+                val deferred = async {
+                    getToken()
+                }
+                val newToken = deferred.await()
                 val token = sessionManager.fetchAuthToken()
                 newToken?.let {
                     if (token != it){

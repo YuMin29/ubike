@@ -3,7 +3,7 @@ package com.yumin.ubike.repository
 import com.yumin.ubike.BuildConfig
 import javax.inject.Inject
 
-class UbikeRepository @Inject constructor(private val apiService: ApiService) {
+class UbikeRepository (private val apiService: ApiService) {
     suspend fun getAvailabilityByCity(city: String) =
         apiService.getAvailabilityByCity(city)
 

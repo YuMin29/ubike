@@ -30,6 +30,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -46,7 +47,6 @@ import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentMapBinding
 import com.yumin.ubike.databinding.LayoutBottomSheetDialogBinding
-import com.yumin.ubike.repository.UbikeRepository
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
 import java.util.*
@@ -62,16 +62,12 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
     private lateinit var mapView: View
     private lateinit var myGoogleMap: GoogleMap
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
-
-    private val mapViewModel: MapViewModel by activityViewModels {
-        viewModelFactory
-    }
+    private val mapViewModel: MapViewModel by activityViewModels()
     private var isDrawCurrentPosition: Boolean = false
     private lateinit var currentLocationWhenStart: LatLng
     private var availableList: ArrayList<AvailabilityInfoItem> = ArrayList()
     private var stationList = StationInfo()
-    private var ubikeType: UbikeType = UbikeType.ALL
+    private var ubikeType: UbikeType = UbikeType.VERSION_ALL
     private var zoomDistance: Double = 0.0
     private var isRefreshed = false
     private var isMoveToSelectedStation = false
@@ -84,9 +80,9 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
 
 
     enum class UbikeType constructor(val value: Int) {
-        ONE(1),
-        TWO(2),
-        ALL(0)
+        VERSION_ONE(1),
+        VERSION_TWO(2),
+        VERSION_ALL(0)
     }
 
     companion object {
@@ -191,15 +187,15 @@ class MapFragment : Fragment(), LocationListener, OnMapReadyCallback {
         mapView = (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).requireView()
 
         fragmentMapBinding.ubikeAll.setOnClickListener {
-            changeUbikeType(UbikeType.ALL)
+            changeUbikeType(UbikeType.VERSION_ALL)
         }
 
         fragmentMapBinding.ubike10.setOnClickListener {
-            changeUbikeType(UbikeType.ONE)
+            changeUbikeType(UbikeType.VERSION_ONE)
         }
 
         fragmentMapBinding.ubike20.setOnClickListener {
-            changeUbikeType(UbikeType.TWO)
+            changeUbikeType(UbikeType.VERSION_TWO)
         }
 
         fragmentMapBinding.favoriteStationInfo.setOnClickListener {

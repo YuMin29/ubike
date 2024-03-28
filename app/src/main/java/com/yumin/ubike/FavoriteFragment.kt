@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -31,11 +32,7 @@ class FavoriteFragment : Fragment() {
     private lateinit var fragmentFavoriteBinding: FragmentFavoriteBinding
     private lateinit var stationListAdapter: StationListAdapter
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
-
-    private val mapViewModel: MapViewModel by activityViewModels {
-        viewModelFactory
-    }
+    private val mapViewModel: MapViewModel by activityViewModels()
     private lateinit var favoriteStationList: ArrayList<String>
     private lateinit var broadcastReceiver: BroadcastReceiver
     private var allStationInfo = listOf<StationInfo>()

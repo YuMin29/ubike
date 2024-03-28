@@ -16,6 +16,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.model.LatLng
 import com.yumin.ubike.data.StationInfoItem
@@ -33,10 +34,7 @@ class StationListFragment : Fragment() {
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
     private lateinit var stationListAdapter: StationListAdapter
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var viewModelFactory: ViewModelProvider.Factory
-    private val viewModel: MapViewModel by activityViewModels {
-        viewModelFactory
-    }
+    private val viewModel: MapViewModel by activityViewModels()
     private lateinit var currentLatLng: LatLng
     private var stationRange: Int = MapFragment.stationRange
     private var type: Int = 0
@@ -97,8 +95,9 @@ class StationListFragment : Fragment() {
             setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
                 stationInfoItem?.let {
                     Log.d(TAG, "[onItemClick] ITEM = " + it.stationName)
-                    findNavController().popBackStack()
                     viewModel.setSelectStationUid(it.stationUID)
+                    findNavController().popBackStack()
+
                 }
             }
 

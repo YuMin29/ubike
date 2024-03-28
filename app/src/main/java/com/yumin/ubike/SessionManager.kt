@@ -7,7 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 
-class SessionManager @Inject constructor (context: Context) {
+class SessionManager (context: Context) {
     private val TAG = "[SessionManager]"
     private var sharedPreferences: SharedPreferences =
         context.getSharedPreferences(context.getString(R.string.app_name), Context.MODE_PRIVATE)

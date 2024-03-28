@@ -8,11 +8,16 @@ import com.yumin.ubike.data.AvailabilityInfoItem
 import com.yumin.ubike.data.StationInfo
 import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.repository.UbikeRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import javax.inject.Inject
 
 
-class MapViewModel @Inject constructor(application: Application,val repository: UbikeRepository) : AndroidViewModel(application) {
+@HiltViewModel
+class MapViewModel @Inject constructor(
+    application: Application,
+    val repository: UbikeRepository
+) : AndroidViewModel(application) {
     private val TAG = "[MapViewModel]"
     private val cities = arrayListOf(
         "Taichung", "Hsinchu", "MiaoliCounty", "NewTaipei", "PingtungCounty",
@@ -34,10 +39,10 @@ class MapViewModel @Inject constructor(application: Application,val repository: 
         try {
             if (NetworkChecker.checkConnectivity(getApplication())) {
                 viewModelScope.launch(Dispatchers.IO) {
-                    val transform1: (String) -> Deferred<StationInfo> = { cityName ->
+                    val stationInfo = cities.map {
                         async {
                             var result = StationInfo()
-                            val response = repository.getStationInfoByCity(cityName)
+                            val response = repository.getStationInfoByCity(it)
                             if (response.isSuccessful) {
                                 response.body()?.let {
                                     result = it
@@ -47,8 +52,7 @@ class MapViewModel @Inject constructor(application: Application,val repository: 
                             }
                             result
                         }
-                    }
-                    val stationInfo = cities.map(transform1).awaitAll()
+                    }.awaitAll()
 
                     Log.d(TAG, "[getAllCityStationInfo] [postValue]");
                     allCityStationInfo.postValue(Event(Resource.Success(stationInfo)))
@@ -165,6 +169,7 @@ class MapViewModel @Inject constructor(application: Application,val repository: 
     }
 
     fun setSelectStationUid(uid: String) {
+        Log.d(TAG,"[selectStationUid.postValue] = $uid")
         selectStationUid.postValue(Event(uid))
     }
 

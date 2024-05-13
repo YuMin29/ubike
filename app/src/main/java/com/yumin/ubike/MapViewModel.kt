@@ -4,176 +4,312 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.*
 import com.yumin.ubike.data.AvailabilityInfo
-import com.yumin.ubike.data.AvailabilityInfoItem
+import com.yumin.ubike.data.UbikeStationWithFavorite
 import com.yumin.ubike.data.StationInfo
-import com.yumin.ubike.data.StationInfoItem
+import com.yumin.ubike.data.UbikeStationInfoItem
 import com.yumin.ubike.repository.UbikeRepository
+import com.yumin.ubike.room.FavoriteRepository
+import com.yumin.ubike.room.FavoriteStation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     application: Application,
-    val repository: UbikeRepository
+    val repository: UbikeRepository,
+    private val favoriteRepository: FavoriteRepository
 ) : AndroidViewModel(application) {
     private val TAG = "[MapViewModel]"
-    private val cities = arrayListOf(
-        "Taichung", "Hsinchu", "MiaoliCounty", "NewTaipei", "PingtungCounty",
-        "KinmenCounty", "Taoyuan", "Taipei", "Kaohsiung", "Tainan", "Chiayi", "HsinchuCounty"
+    private val cities = arrayListOf("Taipei", "NewTaipei", "Taoyuan", "Hsinchu", "HsinchuCounty",
+        "MiaoliCounty", "Taichung", "Chiayi", "Tainan", "Kaohsiung", "PingtungCounty")
+
+    private var jobNearbyStation: Job? = null
+    private var jobFavoriteStation: Job? = null
+    private var jobSearchStation: Job? = null
+
+    private var _selectStationUid = MutableSharedFlow<String>()
+    var selectStationUid: SharedFlow<String> = _selectStationUid
+
+    private var _searchStationUid = MutableSharedFlow<UbikeStationWithFavorite>()
+    var searchStationUid: SharedFlow<UbikeStationWithFavorite> = _searchStationUid
+
+    private var _nearbyStation: MutableStateFlow<List<UbikeStationWithFavorite>> = MutableStateFlow(emptyList())
+    var nearbyStation: StateFlow<List<UbikeStationWithFavorite>> = _nearbyStation
+
+    private var _queryStationName: MutableStateFlow<String?> = MutableStateFlow(null)
+    var queryStationName: StateFlow<String?> = _queryStationName
+
+    private var nearby: MutableStateFlow<List<UbikeStationInfoItem>> = MutableStateFlow(emptyList())
+
+    private var allCityStationInfo = MutableStateFlow(StationInfo())
+
+    private var ubikeStationInfo = MutableStateFlow<List<UbikeStationInfoItem>>(emptyList())
+
+    private val cityStationInfo: Flow<StationInfo> = flow {
+        val result = StationInfo()
+        cities.forEach { city ->
+            delay(300) // need delay here because  the tdx restriction is call api 5 times per second
+            val response = repository.getStationInfoByCity(city)
+            if (response.isSuccessful) {
+                Log.d(TAG, "[getAllCityStationInfo] cityName = $city, isSuccessful")
+                response.body()?.let {
+                    result.addAll(it)
+                }
+            } else {
+                Log.d(TAG, "[getAllCityStationInfo] cityName = $city, fail code = ${response.code()}, ${response.message()}")
+                // Handle error if needed
+            }
+        }
+        emit(result)
+    }
+
+    private val cityAvailableInfo = flow {
+        val result = AvailabilityInfo()
+        cities.forEach { city ->
+            delay(300) // need delay here because  the tdx restriction is call api 5 times per second
+
+            val response = repository.getAvailabilityByCity(city)
+            if (response.isSuccessful) {
+                Log.d(TAG, "[getAvailabilityByCity] cityName = $city, isSuccessful")
+                response.body()?.let {
+                    result.addAll(it)
+                }
+            } else {
+                Log.d(TAG, "[getAvailabilityByCity] cityName = $city, fail code = ${response.code()}, ${response.message()}")
+                // Handle error if needed
+            }
+        }
+        emit(result)
+    }
+
+    init {
+        viewModelScope.launch {
+            cityStationInfo.collect {
+                allCityStationInfo.value = it
+            }
+        }
+        getWholeCityStation()
+    }
+
+    private fun getWholeCityStation() {
+        viewModelScope.launch {
+            delay(2000)
+            val bikeStationInfoList = mutableListOf<UbikeStationInfoItem>()
+            combine(allCityStationInfo, cityAvailableInfo) { allStationInfo, allAvailabilityInfo ->
+                allStationInfo.map { stationInfoItem ->
+                    val availabilityInfo = allAvailabilityInfo.find { stationInfoItem.stationUID == it.StationUID }
+                    availabilityInfo?.let {
+                        bikeStationInfoList.add(
+                            UbikeStationInfoItem(
+                                it.AvailableRentBikes,
+                                availabilityInfo.AvailableRentBikesDetail,
+                                availabilityInfo.AvailableReturnBikes,
+                                availabilityInfo.ServiceStatus,
+                                availabilityInfo.ServiceType,
+                                stationInfoItem.stationID,
+                                stationInfoItem.authorityID,
+                                stationInfoItem.bikesCapacity,
+                                stationInfoItem.srcUpdateTime,
+                                stationInfoItem.stationAddress,
+                                stationInfoItem.stationName,
+                                stationInfoItem.stationPosition,
+                                stationInfoItem.stationUID,
+                                stationInfoItem.updateTime
+                            )
+                        )
+                    }
+                }
+                bikeStationInfoList
+            }.collect {
+                ubikeStationInfo.value = it
+            }
+        }
+    }
+
+    fun refreshAllCityStation() {
+        getWholeCityStation()
+    }
+
+    fun addToFavoriteList(uid: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "addToFavoriteList , UID => $uid")
+            favoriteRepository.addToFavoriteList(FavoriteStation(uid))
+        }
+    }
+
+    fun removeFromFavoriteList(uid: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "removeFromFavoriteList , UID => $uid")
+            favoriteRepository.deleteFromFavoriteList(FavoriteStation(uid))
+        }
+    }
+
+    val favoriteStation: StateFlow<List<UbikeStationWithFavorite>> = ubikeStationInfo.combine(favoriteRepository.getAll()) { ubikeStationInfo, favoriteList ->
+        ubikeStationInfo
+            .filter { item ->
+                favoriteList.any { it.uid == item.stationUID }
+            }
+            .map {
+                UbikeStationWithFavorite(it, true)
+            }
+    }.stateIn(
+        scope = viewModelScope,
+        initialValue = emptyList(),
+        started = SharingStarted.WhileSubscribed()
     )
 
-    var selectStationUid = MutableLiveData<Event<String>>()
-    var searchStationUid = MutableLiveData<Event<Pair<StationInfoItem, AvailabilityInfoItem>>>()
-    var stationInfo = MutableLiveData<Resource<StationInfo>>()
-    var availabilityInfo = MutableLiveData<Resource<AvailabilityInfo>>()
-    var refreshAvailability = MutableLiveData<Resource<AvailabilityInfo>>()
-    var allCityStationInfo = MutableLiveData<Event<Resource<List<StationInfo>>>>()
-    var allCityAvailabilityInfo = MutableLiveData<Event<Resource<List<AvailabilityInfo>>>>()
+    val searchStation = combine(_queryStationName, ubikeStationInfo, favoriteRepository.getAll()) { _queryStationName, wholeStationList, favoriteStationList ->
+        if (!_queryStationName.isNullOrEmpty()) {
+            wholeStationList
+                .filter { stationItem ->
+                    stationItem.stationName.zhTw.contains(_queryStationName!!)
+                }
+                .map { stationItem ->
+                    val isFavorite =
+                        favoriteStationList.any { it.uid == stationItem.stationUID }
+                    UbikeStationWithFavorite(stationItem, isFavorite)
+                }
+        } else {
+            Log.d(TAG, "[testSearchStation] emptyList")
+            emptyList()
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        initialValue = emptyList(),
+        started = SharingStarted.WhileSubscribed()
+    )
 
+    fun queryStation(queryStationName: String?) {
+        _queryStationName.update { queryStationName }
+    }
 
-    fun getAllCityStationInfo() {
-        allCityStationInfo.postValue(Event(Resource.Loading()))
+    fun getNearbyStation(
+        latitude: Double,
+        longitude: Double,
+        distance: Int,
+        type: Int
+    ) {
+        jobNearbyStation?.cancel()
+        if (NetworkChecker.checkConnectivity(getApplication())) {
+            jobNearbyStation =
+                viewModelScope.launch(Dispatchers.IO + coroutineExceptionHandler) {
+                    collectNearbyStation(latitude, longitude, distance, type)
 
-        try {
-            if (NetworkChecker.checkConnectivity(getApplication())) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    val stationInfo = cities.map {
-                        async {
-                            var result = StationInfo()
-                            val response = repository.getStationInfoByCity(it)
-                            if (response.isSuccessful) {
-                                response.body()?.let {
-                                    result = it
-                                }
-                            } else {
-                                allCityStationInfo.postValue(Event(Resource.Error(response.message())))
+                    combine(
+                        nearby,
+                        favoriteRepository.getAll()
+                    ) { nearbyStationInfo, favoriteStationList ->
+                        nearbyStationInfo
+                            .map { stationItem ->
+                                val isFavorite =
+                                    favoriteStationList.any { it.uid == stationItem.stationUID }
+                                UbikeStationWithFavorite(stationItem, isFavorite)
                             }
-                            result
-                        }
-                    }.awaitAll()
-
-                    Log.d(TAG, "[getAllCityStationInfo] [postValue]");
-                    allCityStationInfo.postValue(Event(Resource.Success(stationInfo)))
-                }
+                    }.collect {
+                        _nearbyStation.value = it
+                    }
             }
-        } catch (t: Throwable) {
-            allCityStationInfo.postValue(Event(Resource.Error("exception:" + t.message)))
         }
     }
 
-    fun getAllCityAvailabilityInfo() {
-        allCityAvailabilityInfo.postValue(Event(Resource.Loading()))
+    private suspend fun collectNearbyStation(
+        latitude: Double,
+        longitude: Double,
+        distance: Int,
+        type: Int
+    ) {
+        var queryServiceType: String? = when (type) {
+            1 -> "ServiceType eq '1'"
+            2 -> "ServiceType eq '2'"
+            else -> null
+        }
 
-        try {
-            if (NetworkChecker.checkConnectivity(getApplication())) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    val transform: (String) -> Deferred<AvailabilityInfo> = { cityName ->
-                        async {
-                            var result = AvailabilityInfo()
-                            val response = repository.getAvailabilityByCity(cityName)
-                            if (response.isSuccessful) {
-                                response.body()?.let {
-                                    result = it
-                                }
-                            } else {
-                                Log.d(TAG, "[getAllCityAvailabilityInfo] fail type, " + response.code())
-                                allCityAvailabilityInfo.postValue(Event(Resource.Error(response.message())))
-                            }
-                            result
-                        }
-                    }
-                    val availabilityInfo = cities.map(transform).awaitAll()
-                    Log.d(TAG, "[getAllCityAvailabilityInfo] [postValue]");
-                    allCityAvailabilityInfo.postValue(Event(Resource.Success(availabilityInfo)))
+        val stationInfoFlow = flow {
+            val response =  repository.getStationInfoNearBy("nearby($latitude, $longitude, $distance)", queryServiceType)
+            if (response.isSuccessful) {
+                Log.d(TAG, "[stationInfoFlow] is success")
+                emit(response.body())
+            } else {
+                Log.d(TAG, "[stationInfoFlow] fail code = ${response.code()}, ${response.message()}")
+                // Handle error if needed
+            }
+        }
+
+        val availabilityInfoFlow = flow{
+            val response =  repository.getAvailabilityInfoNearBy("nearby($latitude, $longitude, $distance)", queryServiceType)
+            if (response.isSuccessful) {
+                Log.d(TAG, "[stationInfoFlow] is success")
+                emit(response.body())
+            } else {
+                Log.d(TAG, "[stationInfoFlow] fail code = ${response.code()}, ${response.message()}")
+                // Handle error if needed
+            }
+        }
+        val nearbyStationList = mutableListOf<UbikeStationInfoItem>()
+        combine(stationInfoFlow,availabilityInfoFlow) {
+            stationInfo,availabilityInfo ->
+
+            stationInfo?.map { stationItem ->
+                val item = availabilityInfo?.find { it.StationUID == stationItem.stationUID }
+
+                if (item != null) {
+                    nearbyStationList.add(UbikeStationInfoItem(
+                        item.AvailableRentBikes,
+                        item.AvailableRentBikesDetail,
+                        item.AvailableReturnBikes,
+                        item.ServiceStatus,
+                        item.ServiceType,
+                        stationItem.stationID,
+                        stationItem.authorityID,
+                        stationItem.bikesCapacity,
+                        stationItem.srcUpdateTime,
+                        stationItem.stationAddress,
+                        stationItem.stationName,
+                        stationItem.stationPosition,
+                        stationItem.stationUID,
+                        stationItem.updateTime
+                    ))
                 }
             }
-        } catch (t: Throwable) {
-            allCityAvailabilityInfo.postValue(Event(Resource.Error("exception:" + t.message)))
+            nearbyStationList
+        }.collect {
+            nearby.value = it
         }
     }
 
-    fun getStationInfoNearBy(latitude: Double, longitude: Double, distance: Int, type: Int) {
-        Log.d(TAG, "[getStationInfoNearBy] latitude = $latitude , longitude = $longitude ,type = $type")
-        stationInfo.postValue(Resource.Loading())
-
-        try {
-            if (NetworkChecker.checkConnectivity(getApplication())) {
-                viewModelScope.launch(Dispatchers.IO) {
-
-                    var queryServiceType: String? = when (type) {
-                        1 -> "ServiceType eq '1'"
-                        2 -> "ServiceType eq '2'"
-                        else -> null
-                    }
-
-                    val response = repository.getStationInfoNearBy("nearby($latitude, $longitude, $distance)", queryServiceType)
-                    if (response.isSuccessful) {
-                        response.body()?.let {
-                            stationInfo.postValue(Resource.Success(it))
-                        }
-                    } else {
-                        stationInfo.postValue(Resource.Error(response.message()))
-                    }
-                }
-            }
-        } catch (t: Throwable) {
-            stationInfo.postValue(Resource.Error("exception:" + t.message))
-        }
-    }
-
-    fun getAvailabilityNearBy(latitude: Double, longitude: Double, distance: Int, type: Int, refresh: Boolean) {
-        if (!refresh)
-            availabilityInfo.postValue(Resource.Loading())
-        else
-            refreshAvailability.postValue(Resource.Loading())
-
-        Log.d(TAG, "[getAvailabilityNearBy] latitude = $latitude , longitude = $longitude")
-        try {
-            if (NetworkChecker.checkConnectivity(getApplication())) {
-                viewModelScope.launch(Dispatchers.IO) {
-
-                    var queryServiceType: String? = when (type) {
-                        1 -> "ServiceType eq '1'"
-                        2 -> "ServiceType eq '2'"
-                        else -> null
-                    }
-
-                    val response = repository.getAvailabilityInfoNearBy(
-                        "nearby($latitude, $longitude, $distance)",
-                        queryServiceType
-                    )
-
-                    if (response.isSuccessful) {
-                        response.body()?.let {
-                            if (!refresh)
-                                availabilityInfo.postValue(Resource.Success(it))
-                            else
-                                refreshAvailability.postValue(Resource.Success(it))
-                        }
-                    } else {
-                        if (!refresh)
-                            availabilityInfo.postValue(Resource.Error(response.message()))
-                        else
-                            refreshAvailability.postValue(Resource.Error(response.message()))
-                    }
-                }
-            }
-        } catch (t: Throwable) {
-            if (!refresh)
-                availabilityInfo.postValue(Resource.Error("exception:" + t.message))
-            else
-                refreshAvailability.postValue(Resource.Error("exception:" + t.message))
-        }
+    val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        throwable.printStackTrace()
     }
 
     fun setSelectStationUid(uid: String) {
-        Log.d(TAG,"[selectStationUid.postValue] = $uid")
-        selectStationUid.postValue(Event(uid))
+        Log.d(TAG, "[selectStationUid.postValue] = $uid")
+        viewModelScope.launch {
+            _selectStationUid.emit(uid)
+        }
     }
 
-    fun setSelectSearchStationUid(stationInfoItem: StationInfoItem, availabilityInfoItem: AvailabilityInfoItem) {
-        searchStationUid.postValue(Event(Pair(stationInfoItem, availabilityInfoItem)))
+    fun setSearchStationUid(ubikeStationWithFavorite: UbikeStationWithFavorite) {
+        viewModelScope.launch {
+            _searchStationUid.emit(ubikeStationWithFavorite)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        jobNearbyStation?.cancel()
+        jobFavoriteStation?.cancel()
+        jobSearchStation?.cancel()
     }
 }

@@ -11,37 +11,36 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.model.LatLng
-import com.yumin.ubike.data.StationInfoItem
 import com.yumin.ubike.databinding.FragmentStationListBinding
-import com.yumin.ubike.repository.UbikeRepository
-import java.util.*
-import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class StationListFragment : Fragment() {
+class StationListFragment : Fragment(), FavoriteItemClickListener {
     private val TAG = "[StationListFragment]"
     private lateinit var fragmentStationListBinding: FragmentStationListBinding
-    private lateinit var stationListAdapter: StationListAdapter
-    @Inject lateinit var sessionManager: SessionManager
     private val viewModel: MapViewModel by activityViewModels()
     private lateinit var currentLatLng: LatLng
     private var stationRange: Int = MapFragment.stationRange
     private var type: Int = 0
     private lateinit var broadcastReceiver: BroadcastReceiver
     lateinit var currentLocation: Location
+    private lateinit var stationListAdapter: StationListAdapter
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         fragmentStationListBinding = FragmentStationListBinding.inflate(inflater)
         return fragmentStationListBinding.root
     }
@@ -56,7 +55,10 @@ class StationListFragment : Fragment() {
         }
 
         arguments?.let { bundle ->
-            currentLatLng = LatLng(bundle.getDouble(MapFragment.KEY_LATITUDE), bundle.getDouble(MapFragment.KEY_LONGITUDE))
+            currentLatLng = LatLng(
+                bundle.getDouble(MapFragment.KEY_LATITUDE),
+                bundle.getDouble(MapFragment.KEY_LONGITUDE)
+            )
             currentLocation = Location(LocationManager.NETWORK_PROVIDER).apply {
                 latitude = currentLatLng.latitude
                 longitude = currentLatLng.longitude
@@ -82,35 +84,16 @@ class StationListFragment : Fragment() {
     }
 
     private fun getCurrentStationInfo() {
-        viewModel.getStationInfoNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, stationRange, type
-        )
-        viewModel.getAvailabilityNearBy(
-            currentLatLng.latitude, currentLatLng.longitude, stationRange, type, false
+        viewModel.getNearbyStation(
+            currentLatLng.latitude,
+            currentLatLng.longitude,
+            stationRange,
+            type
         )
     }
 
     private fun initView() {
-        stationListAdapter = StationListAdapter(mutableListOf(), mutableListOf(),sessionManager).apply {
-            setOnItemClickListener { view, stationInfoItem, availabilityInfoItem ->
-                stationInfoItem?.let {
-                    Log.d(TAG, "[onItemClick] ITEM = " + it.stationName)
-                    viewModel.setSelectStationUid(it.stationUID)
-                    findNavController().popBackStack()
-
-                }
-            }
-
-            setOnShareClickListener { intent ->
-                intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
-                val shareIntent = Intent.createChooser(intent, null)
-                startActivity(shareIntent)
-            }
-
-            setOnNavigationClickListener { intent ->
-                startActivity(intent)
-            }
-        }
+        stationListAdapter = StationListAdapter(this)
         fragmentStationListBinding.stationListView.adapter = stationListAdapter
 
         fragmentStationListBinding.imageButton.setOnClickListener {
@@ -119,52 +102,48 @@ class StationListFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.stationInfo.observe(viewLifecycleOwner, Observer { response ->
-            when (response) {
-                is Resource.Success -> {
-                    response.data?.let { data ->
-                        Log.d(TAG, "[observeViewModel] stationInfo SIZE = " + data.size)
-                        SortUtils.sortListByDistance(data as ArrayList<StationInfoItem>)
-                        stationListAdapter.updateStationList(data.toMutableList())
-                    }
-                }
-
-                is Resource.Loading -> {
-
-                }
-
-                is Resource.Error -> {
-                    response.message?.let { message ->
-                        Log.e(TAG,"observe stationInfo, an error happened: $message")
-                    }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.nearbyStation.collect{
+                    Log.d(TAG, "[nearbyStationDataWithFavorite] DATA SIZE = " + it.size)
+                    SortUtils.sortFavoriteListByDistance(it)
+                    stationListAdapter.submitList(it)
                 }
             }
-        })
-
-        viewModel.availabilityInfo.observe(viewLifecycleOwner, Observer { response ->
-            when (response) {
-                is Resource.Success -> {
-                    response.data?.let { data ->
-                        Log.d(TAG, "[observeViewModel] availabilityInfo SIZE = " + data.size)
-                        stationListAdapter.updateAvailabilityList(data.toMutableList())
-                    }
-                }
-
-                is Resource.Loading -> {
-
-                }
-
-                is Resource.Error -> {
-                    response.message?.let { message ->
-                        Log.e(TAG,"observe availabilityInfo, an error happened: $message")
-                    }
-                }
-            }
-        })
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         requireContext().unregisterReceiver(broadcastReceiver)
+    }
+
+    override fun onClick(favoriteItemClickEvent: FavoriteItemClickEvent) {
+        Log.d(TAG, "[onClick] event = $favoriteItemClickEvent")
+        when (favoriteItemClickEvent) {
+            is FavoriteItemClickEvent.ItemClick -> {
+                viewModel.setSelectStationUid(favoriteItemClickEvent.ubikeStationWithFavorite.item.stationUID)
+                findNavController().popBackStack()
+            }
+
+            is FavoriteItemClickEvent.NavigationClick -> {
+                startActivity(favoriteItemClickEvent.intent)
+            }
+
+            is FavoriteItemClickEvent.ShareClick -> {
+                val intent = favoriteItemClickEvent.intent
+                intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject))
+                val shareIntent = Intent.createChooser(intent, null)
+                startActivity(shareIntent)
+            }
+
+            is FavoriteItemClickEvent.FavoriteClick -> {
+                // through room to edit favorite table
+                if (favoriteItemClickEvent.isFavorite)
+                    viewModel.addToFavoriteList(favoriteItemClickEvent.stationUid)
+                else
+                    viewModel.removeFromFavoriteList(favoriteItemClickEvent.stationUid)
+            }
+        }
     }
 }

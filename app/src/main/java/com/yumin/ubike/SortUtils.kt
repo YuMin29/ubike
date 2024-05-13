@@ -2,18 +2,18 @@ package com.yumin.ubike
 
 import android.location.Location
 import android.location.LocationManager
-import com.yumin.ubike.data.StationInfoItem
+import com.yumin.ubike.data.UbikeStationWithFavorite
 import java.util.*
 import kotlin.Comparator
 
 object SortUtils {
-    fun sortListByDistance(stationList: ArrayList<StationInfoItem>): ArrayList<StationInfoItem> {
-        val comparator = Comparator<StationInfoItem?> { item1, item2 ->
+    fun sortFavoriteListByDistance(stationList: List<UbikeStationWithFavorite>): List<UbikeStationWithFavorite> {
+        val comparator = Comparator<UbikeStationWithFavorite?> { item1, item2 ->
             var distance1 = 0f
             item1?.let {
                 val location1 = Location(LocationManager.NETWORK_PROVIDER).apply {
-                    latitude = item1.stationPosition.positionLat
-                    longitude = item1.stationPosition.positionLon
+                    latitude = item1.item.stationPosition.positionLat
+                    longitude = item1.item.stationPosition.positionLon
                 }
 
                 distance1 = MapFragment.currentLocation.distanceTo(location1)
@@ -22,8 +22,8 @@ object SortUtils {
             var distance2 = 0f
             item2?.let {
                 val location2 = Location(LocationManager.NETWORK_PROVIDER).apply {
-                    latitude = item2.stationPosition.positionLat
-                    longitude = item2.stationPosition.positionLon
+                    latitude = item2.item.stationPosition.positionLat
+                    longitude = item2.item.stationPosition.positionLon
                 }
                 distance2 = MapFragment.currentLocation.distanceTo(location2)
             }

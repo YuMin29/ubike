@@ -7,12 +7,14 @@ plugins {
 }
 
 android {
-    compileSdk 32
+    compileSdk 34
+
+    namespace 'com.yumin.ubike'
 
     defaultConfig {
         applicationId "com.yumin.ubike"
         minSdk 23
-        targetSdk 32
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -79,4 +81,15 @@ dependencies {
     // hilt
     implementation("com.google.dagger:hilt-android:2.44")
     kapt("com.google.dagger:hilt-android-compiler:2.44")
+    // room
+    implementation "androidx.room:room-runtime:2.6.1"
+    annotationProcessor "androidx.room:room-compiler:2.6.1"
+    // To use Kotlin annotation processing tool (kapt)
+    kapt "androidx.room:room-compiler:2.6.1"
+    // To use Kotlin Symbol Processing (KSP)
+//    ksp "androidx.room:room-compiler:2.6.1"
+
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.7.0"
+    implementation "androidx.room:room-ktx:2.6.1"
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.1.1'
 }
